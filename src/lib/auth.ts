@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { getAuthenticatedServerClient } from "@/lib/insforge/server";
+import { getAuthenticatedServerClient, withInsForgeTimeout } from "@/lib/insforge/server";
 import type { UserProfile } from "@/types/domain";
 
 async function getProfileRecord(): Promise<UserProfile | null> {
@@ -8,13 +8,18 @@ async function getProfileRecord(): Promise<UserProfile | null> {
 
   if (!authContext?.user) return null;
 
-  const { data, error } = await authContext.insforge.database
-    .from("profiles")
-    .select(
-      "id, full_name, email, role, branch_id, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, branch:branches(id, name, code, city)",
-    )
-    .eq("id", authContext.user.id)
-    .single();
+  const { data, error } = await withInsForgeTimeout(
+    Promise.resolve(
+      authContext.insforge.database
+        .from("profiles")
+        .select(
+          "id, full_name, email, role, branch_id, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, branch:branches(id, name, code, city)",
+        )
+        .eq("id", authContext.user.id)
+        .single(),
+    ),
+    "InsForge profile lookup",
+  );
 
   if (error || !data) return null;
 

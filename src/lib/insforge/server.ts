@@ -7,6 +7,7 @@ import type { AppRole } from "@/types/domain";
 export const INSFORGE_ACCESS_COOKIE = "insforge_access_token";
 export const INSFORGE_REFRESH_COOKIE = "insforge_refresh_token";
 export const INSFORGE_CODE_VERIFIER_COOKIE = "insforge_code_verifier";
+const INSFORGE_REQUEST_TIMEOUT_MS = 10000;
 
 const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -24,6 +25,29 @@ export function createServerInsForgeClient(accessToken?: string): InsForgeClient
     isServerMode: true,
     edgeFunctionToken: accessToken,
   });
+}
+
+export async function withInsForgeTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs = INSFORGE_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 export async function setAuthCookies(accessToken: string, refreshToken?: string | null) {
@@ -62,7 +86,10 @@ export async function getAuthenticatedServerClient() {
   }
 
   const insforge = createServerInsForgeClient(accessToken);
-  const { data, error } = await insforge.auth.getCurrentUser();
+  const { data, error } = await withInsForgeTimeout(
+    insforge.auth.getCurrentUser(),
+    "InsForge getCurrentUser",
+  );
 
   if (error || !data?.user) {
     return null;

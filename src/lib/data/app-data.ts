@@ -65,8 +65,27 @@ function applyBranchFilter<T>(
 }
 
 export async function getDashboardData(profile: UserProfile): Promise<DashboardData> {
-  const insforge = await getServerInsForge();
-  const expiryCutoff = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const emptyDashboard: DashboardData = {
+    metrics: {
+      activeClients: 0,
+      pendingRequests: 0,
+      pendingApprovals: 0,
+      dispatchesInFlight: 0,
+      expiringSoon: 0,
+      lowStockMaterials: 0,
+      deliveriesToday: 0,
+    },
+    requestQueue: [],
+    approvalQueue: [],
+    lowStock: [],
+    expiringStock: [],
+    dispatches: [],
+    notifications: [],
+  };
+
+  try {
+    const insforge = await getServerInsForge();
+    const expiryCutoff = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
   const clientCountQuery = applyBranchFilter(
     insforge.database.from("clients").select("id", { count: "exact", head: true }).eq("status", "active"),
@@ -107,42 +126,45 @@ export async function getDashboardData(profile: UserProfile): Promise<DashboardD
           .order("created_at", { ascending: false })
           .limit(6);
 
-  const [clients, requests, approvals, stock, dispatches, notifications] = await Promise.all([
-    clientCountQuery,
-    requestsQuery,
-    approvalsQuery,
-    stockQuery,
-    dispatchQuery,
-    notificationQuery,
-  ]);
+    const [clients, requests, approvals, stock, dispatches, notifications] = await Promise.all([
+      clientCountQuery,
+      requestsQuery,
+      approvalsQuery,
+      stockQuery,
+      dispatchQuery,
+      notificationQuery,
+    ]);
 
-  const inventoryRows = (stock.data ?? []) as StockSnapshot[];
-  const requestRows = (requests.data ?? []) as RequestRecord[];
-  const dispatchRows = (dispatches.data ?? []) as DispatchRecord[];
+    const inventoryRows = (stock.data ?? []) as StockSnapshot[];
+    const requestRows = (requests.data ?? []) as RequestRecord[];
+    const dispatchRows = (dispatches.data ?? []) as DispatchRecord[];
 
-  return {
-    metrics: {
-      activeClients: clients.count ?? 0,
-      pendingRequests: requestRows.filter((item) =>
-        ["draft", "pending", "submitted", "partially_approved", "approved"].includes(item.status),
-      ).length,
-      pendingApprovals: ((approvals.data ?? []) as ApprovalQueueItem[]).filter(
-        (item) => item.decision === "pending",
-      ).length,
-      dispatchesInFlight: dispatchRows.filter((item) => item.status !== "delivered").length,
-      expiringSoon: inventoryRows.filter((item) => item.nearest_expiry_date).length,
-      lowStockMaterials: inventoryRows.filter(
-        (item) => item.available_quantity <= item.reorder_level,
-      ).length,
-      deliveriesToday: dispatchRows.filter((item) => item.status === "delivered").length,
-    },
-    requestQueue: requestRows,
-    approvalQueue: (approvals.data ?? []) as ApprovalQueueItem[],
-    lowStock: inventoryRows.filter((item) => item.available_quantity <= item.reorder_level),
-    expiringStock: inventoryRows.filter((item) => item.nearest_expiry_date),
-    dispatches: dispatchRows,
-    notifications: (notifications.data ?? []) as NotificationRecord[],
-  };
+    return {
+      metrics: {
+        activeClients: clients.count ?? 0,
+        pendingRequests: requestRows.filter((item) =>
+          ["draft", "pending", "submitted", "partially_approved", "approved"].includes(item.status),
+        ).length,
+        pendingApprovals: ((approvals.data ?? []) as ApprovalQueueItem[]).filter(
+          (item) => item.decision === "pending",
+        ).length,
+        dispatchesInFlight: dispatchRows.filter((item) => item.status !== "delivered").length,
+        expiringSoon: inventoryRows.filter((item) => item.nearest_expiry_date).length,
+        lowStockMaterials: inventoryRows.filter(
+          (item) => item.available_quantity <= item.reorder_level,
+        ).length,
+        deliveriesToday: dispatchRows.filter((item) => item.status === "delivered").length,
+      },
+      requestQueue: requestRows,
+      approvalQueue: (approvals.data ?? []) as ApprovalQueueItem[],
+      lowStock: inventoryRows.filter((item) => item.available_quantity <= item.reorder_level),
+      expiringStock: inventoryRows.filter((item) => item.nearest_expiry_date),
+      dispatches: dispatchRows,
+      notifications: (notifications.data ?? []) as NotificationRecord[],
+    };
+  } catch {
+    return emptyDashboard;
+  }
 }
 
 export async function getClients(): Promise<Client[]> {
@@ -254,44 +276,58 @@ export async function getNotifications(profile: UserProfile | null): Promise<Not
 }
 
 export async function getAdminConsoleData(profile: UserProfile): Promise<AdminConsoleData> {
-  const insforge = await getServerInsForge();
+  try {
+    const insforge = await getServerInsForge();
 
-  let usersQuery = insforge.database
-    .from("profiles")
-    .select(
-      "id, full_name, email, role, branch_id, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, created_at",
-    )
-    .order("created_at", { ascending: false });
+    let usersQuery = insforge.database
+      .from("profiles")
+      .select(
+        "id, full_name, email, role, branch_id, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, created_at",
+      )
+      .order("created_at", { ascending: false });
 
-  let auditQuery = insforge.database
-    .from("audit_logs")
-    .select("id, actor_user_id, subject_user_id, action, details, created_at")
-    .order("created_at", { ascending: false })
-    .limit(12);
+    let auditQuery = insforge.database
+      .from("audit_logs")
+      .select("id, actor_user_id, subject_user_id, action, details, created_at")
+      .order("created_at", { ascending: false })
+      .limit(12);
 
-  if (profile.role !== "superadmin") {
-    usersQuery = usersQuery.eq("id", profile.id);
-    auditQuery = auditQuery.or(`actor_user_id.eq.${profile.id},subject_user_id.eq.${profile.id}`);
+    if (profile.role !== "superadmin") {
+      usersQuery = usersQuery.eq("id", profile.id);
+      auditQuery = auditQuery.or(`actor_user_id.eq.${profile.id},subject_user_id.eq.${profile.id}`);
+    }
+
+    const [usersResponse, auditResponse] = await Promise.all([usersQuery, auditQuery]);
+    const users = (usersResponse.data ?? []) as ManagedUserRecord[];
+    const nameMap = new Map(users.map((user) => [user.id, user.full_name]));
+    const recentAuditLogs = ((auditResponse.data ?? []) as AuditLogRecord[]).map((item) => ({
+      ...item,
+      actor_name: item.actor_user_id ? nameMap.get(item.actor_user_id) ?? "System" : "System",
+      subject_name: item.subject_user_id ? nameMap.get(item.subject_user_id) ?? "User" : "User",
+    }));
+
+    return {
+      metrics: {
+        totalUsers: users.length,
+        pendingApprovals: users.filter((user) => user.approval_status === "pending").length,
+        approvedUsers: users.filter((user) => user.approval_status === "approved" && user.is_active).length,
+        auditEvents: recentAuditLogs.length,
+      },
+      users,
+      pendingUsers: users.filter((user) => user.approval_status === "pending"),
+      recentAuditLogs,
+    };
+  } catch {
+    return {
+      metrics: {
+        totalUsers: 0,
+        pendingApprovals: 0,
+        approvedUsers: 0,
+        auditEvents: 0,
+      },
+      users: [],
+      pendingUsers: [],
+      recentAuditLogs: [],
+    };
   }
-
-  const [usersResponse, auditResponse] = await Promise.all([usersQuery, auditQuery]);
-  const users = (usersResponse.data ?? []) as ManagedUserRecord[];
-  const nameMap = new Map(users.map((user) => [user.id, user.full_name]));
-  const recentAuditLogs = ((auditResponse.data ?? []) as AuditLogRecord[]).map((item) => ({
-    ...item,
-    actor_name: item.actor_user_id ? nameMap.get(item.actor_user_id) ?? "System" : "System",
-    subject_name: item.subject_user_id ? nameMap.get(item.subject_user_id) ?? "User" : "User",
-  }));
-
-  return {
-    metrics: {
-      totalUsers: users.length,
-      pendingApprovals: users.filter((user) => user.approval_status === "pending").length,
-      approvedUsers: users.filter((user) => user.approval_status === "approved" && user.is_active).length,
-      auditEvents: recentAuditLogs.length,
-    },
-    users,
-    pendingUsers: users.filter((user) => user.approval_status === "pending"),
-    recentAuditLogs,
-  };
 }
