@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Building2, ChevronRight, LogOut, Package2, Shield } from "lucide-react";
 
+import { signOutAction } from "@/app/(app)/actions";
 import { NAV_ITEMS, ROLE_LABEL_KEYS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { NotificationRecord, UserProfile } from "@/types/domain";
@@ -107,13 +108,15 @@ export function AppShell({
             </div>
           </div>
 
-          <Link
-            href="/login"
-            className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white/65 transition hover:text-white"
-          >
-            <LogOut className="h-4 w-4" />
-            {translate("shell.switch_account")}
-          </Link>
+          <form action={signOutAction} className="mt-8">
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 text-sm font-medium text-white/65 transition hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+              {translate("shell.switch_account")}
+            </button>
+          </form>
         </aside>
 
         <div className="min-w-0 space-y-6">

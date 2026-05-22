@@ -1,13 +1,27 @@
 import { BellRing, FlaskConical, ShieldCheck, Truck } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/forms/login-form";
+import { getCurrentUserProfile } from "@/lib/auth";
 import { APP_NAME } from "@/lib/constants";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isInsForgeConfigured } from "@/lib/env";
 import { t } from "@/lib/i18n";
 import { getCurrentLanguage } from "@/lib/i18n-server";
 
-export default async function LoginPage() {
-  const language = await getCurrentLanguage();
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const [language, profile] = await Promise.all([getCurrentLanguage(), getCurrentUserProfile()]);
+
+  if (profile) {
+    redirect("/dashboard");
+  }
+
+  const verified = resolvedSearchParams?.verified === "1";
+
   const highlights = [
     {
       icon: ShieldCheck,
@@ -73,15 +87,29 @@ export default async function LoginPage() {
               </p>
             </div>
 
-            {!isSupabaseConfigured() ? (
+            {!isInsForgeConfigured() ? (
               <div className="mt-8 rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-800">
-                Demo mode is active because Supabase environment variables are not configured yet.
-                You can still explore the workspace structure and sample workflows.
+                Live login is inactive because InsForge environment variables are not configured yet.
+                Add your InsForge URL and anon key to continue with real authentication.
               </div>
             ) : null}
 
             <div className="mt-8">
+              {verified ? (
+                <div className="mb-4 rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm leading-6 text-emerald-900">
+                  Email verified successfully. If this is a new account, wait for Super Admin approval
+                  before signing in.
+                </div>
+              ) : null}
               <LoginForm />
+            </div>
+
+            <div className="mt-6 text-sm text-slate-600">
+              Need to activate a new account first? Open{" "}
+              <a href="/verify-email" className="font-medium text-teal-700 transition hover:text-teal-800">
+                email verification
+              </a>
+              , confirm the code from your inbox, and then wait for Super Admin approval.
             </div>
           </div>
         </section>

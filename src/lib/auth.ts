@@ -1,27 +1,22 @@
 import { cache } from "react";
 
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getAuthenticatedServerClient } from "@/lib/insforge/server";
 import type { UserProfile } from "@/types/domain";
 
-export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null> => {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return null;
+async function getProfileRecord(): Promise<UserProfile | null> {
+  const authContext = await getAuthenticatedServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!authContext?.user) return null;
 
-  if (!user) return null;
-
-  const { data } = await supabase
+  const { data, error } = await authContext.insforge.database
     .from("profiles")
     .select(
-      "id, full_name, email, role, branch_id, branch:branches(id, name, code, city)",
+      "id, full_name, email, role, branch_id, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, branch:branches(id, name, code, city)",
     )
-    .eq("id", user.id)
+    .eq("id", authContext.user.id)
     .single();
 
-  if (!data) return null;
+  if (error || !data) return null;
 
   const branch = Array.isArray(data.branch) ? data.branch[0] ?? null : data.branch ?? null;
 
@@ -29,4 +24,16 @@ export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null>
     ...(data as Omit<UserProfile, "branch">),
     branch,
   };
+}
+
+export const getCurrentUserProfileRecord = cache(getProfileRecord);
+
+export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null> => {
+  const profile = await getProfileRecord();
+
+  if (!profile || !profile.is_active || profile.approval_status !== "approved") {
+    return null;
+  }
+
+  return profile;
 });

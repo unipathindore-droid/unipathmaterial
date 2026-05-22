@@ -1,10 +1,13 @@
 export type AppRole =
+  | "superadmin"
   | "admin"
   | "branch_admin"
   | "sales"
   | "phlebotomist"
   | "material_team"
   | "dispatch_manager";
+
+export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export type RequestStatus =
   | "draft"
@@ -36,7 +39,43 @@ export interface UserProfile {
   email: string;
   role: AppRole;
   branch_id: string | null;
+  is_active?: boolean;
+  approval_status?: ApprovalStatus;
+  invited_by?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  email_verified_at?: string | null;
+  last_login_at?: string | null;
   branch?: Branch | null;
+}
+
+export interface ManagedUserRecord extends UserProfile {
+  created_at?: string;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  actor_user_id: string | null;
+  subject_user_id: string | null;
+  action: string;
+  details: Record<string, unknown>;
+  created_at: string;
+  actor_name?: string;
+  subject_name?: string;
+}
+
+export interface AdminConsoleMetrics {
+  totalUsers: number;
+  pendingApprovals: number;
+  approvedUsers: number;
+  auditEvents: number;
+}
+
+export interface AdminConsoleData {
+  metrics: AdminConsoleMetrics;
+  users: ManagedUserRecord[];
+  pendingUsers: ManagedUserRecord[];
+  recentAuditLogs: AuditLogRecord[];
 }
 
 export interface Client {
@@ -128,6 +167,7 @@ export interface NotificationRecord {
 export interface DashboardMetrics {
   activeClients: number;
   pendingRequests: number;
+  pendingApprovals: number;
   dispatchesInFlight: number;
   expiringSoon: number;
   lowStockMaterials: number;

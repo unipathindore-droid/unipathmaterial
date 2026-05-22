@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
 
-import { createClientSupabaseClient } from "@/lib/supabase/client";
+import { markNotificationRead } from "@/app/(app)/actions";
 import { cn, formatDateTime } from "@/lib/utils";
 import type { NotificationRecord } from "@/types/domain";
 import { useLanguage } from "@/components/providers/language-provider";
@@ -36,19 +36,9 @@ export function NotificationBell({
 
   function handleMarkRead(id: string) {
     startTransition(async () => {
-      const supabase = createClientSupabaseClient();
+      const result = await markNotificationRead(id);
 
-      if (!supabase) {
-        markLocalRead(id);
-        return;
-      }
-
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .eq("id", id);
-
-      if (!error) {
+      if (result.ok) {
         markLocalRead(id);
       }
     });

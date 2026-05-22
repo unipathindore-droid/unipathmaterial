@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import type { AppRole, UserProfile } from "@/types/domain";
 
 export const ROLE_ACCESS = {
-  dashboard: ["admin", "branch_admin", "material_team", "dispatch_manager"] satisfies AppRole[],
-  clients: ["admin", "branch_admin"] satisfies AppRole[],
-  materials: ["admin", "material_team"] satisfies AppRole[],
-  requests: ["admin", "branch_admin", "sales", "phlebotomist"] satisfies AppRole[],
-  approval: ["admin", "material_team"] satisfies AppRole[],
-  dispatch: ["admin", "dispatch_manager"] satisfies AppRole[],
+  dashboard: ["superadmin", "admin", "branch_admin", "sales", "phlebotomist", "material_team", "dispatch_manager"] satisfies AppRole[],
+  users: ["superadmin"] satisfies AppRole[],
+  clients: ["superadmin", "admin", "branch_admin"] satisfies AppRole[],
+  materials: ["superadmin", "admin", "material_team"] satisfies AppRole[],
+  requests: ["superadmin", "admin", "branch_admin", "sales", "phlebotomist"] satisfies AppRole[],
+  approval: ["superadmin", "admin", "material_team"] satisfies AppRole[],
+  dispatch: ["superadmin", "admin", "dispatch_manager"] satisfies AppRole[],
 } as const;
 
 export function canAccess(user: UserProfile | null, allowedRoles: AppRole[]) {

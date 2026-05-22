@@ -221,6 +221,7 @@ export const demoDashboard: DashboardData = {
   metrics: {
     activeClients: 42,
     pendingRequests: 18,
+    pendingApprovals: 11,
     dispatchesInFlight: 7,
     expiringSoon: 5,
     lowStockMaterials: 4,
