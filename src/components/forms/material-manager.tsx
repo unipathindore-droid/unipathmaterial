@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Boxes, Loader2, Plus, RefreshCw, Search } from "lucide-react";
 
+import { createMaterialAction } from "@/app/(app)/materials/actions";
 import { StatusPill } from "@/components/layout/status-pill";
-import { createClientSupabaseClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { materialSchema, type MaterialFormValues } from "@/lib/validators/material";
 import type { Material } from "@/types/domain";
@@ -24,6 +25,7 @@ const defaultForm: MaterialFormValues = {
 };
 
 export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
+  const router = useRouter();
   const [materials, setMaterials] = useState(initialMaterials);
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -44,27 +46,9 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
     );
   }, [materials, query]);
 
-  async function loadMaterials() {
-    const supabase = createClientSupabaseClient();
-    if (!supabase) {
-      setListError("Supabase client is not configured.");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("materials")
-      .select(
-        "id, sku, name, category, unit_of_measure, expiry_required:requires_expiry_before_dispatch, min_threshold:reorder_level, active",
-      )
-      .order("name");
-
-    if (error) {
-      setListError(error.message);
-      return;
-    }
-
+  async function refreshMaterials() {
     setListError("");
-    setMaterials((data ?? []) as Material[]);
+    router.refresh();
   }
 
   function closeForm() {
@@ -83,38 +67,17 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
       return;
     }
 
-    const payload = {
-      sku: parsed.data.sku.trim(),
-      name: parsed.data.name.trim(),
-      category: parsed.data.category.trim(),
-      unit_of_measure: parsed.data.unit_of_measure.trim(),
-      requires_expiry_before_dispatch: parsed.data.expiry_required,
-      reorder_level: parsed.data.min_threshold,
-      active: parsed.data.active,
-    };
-
     startTransition(async () => {
-      const supabase = createClientSupabaseClient();
-      if (!supabase) {
-        setFormError("Supabase client is not configured.");
+      const result = await createMaterialAction(parsed.data);
+
+      if (!result.ok) {
+        setFormError(result.error);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("materials")
-        .insert(payload)
-        .select(
-          "id, sku, name, category, unit_of_measure, expiry_required:requires_expiry_before_dispatch, min_threshold:reorder_level, active",
-        )
-        .single();
-
-      if (error) {
-        setFormError(error.message);
-        return;
-      }
-
-      setMaterials((current) => [data as Material, ...current]);
+      setMaterials((current) => [result.material, ...current]);
       closeForm();
+      router.refresh();
     });
   }
 
@@ -135,7 +98,7 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => startTransition(async () => loadMaterials())}
+              onClick={() => startTransition(async () => refreshMaterials())}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <RefreshCw className={cn("h-4 w-4", isPending ? "animate-spin" : "")} />

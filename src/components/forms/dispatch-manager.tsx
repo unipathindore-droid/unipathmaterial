@@ -1,53 +1,32 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, MailCheck, RefreshCw, Truck } from "lucide-react";
 
+import {
+  createDispatchAction,
+  getDispatchDraftAction,
+} from "@/app/(app)/dispatch/actions";
 import { StatusPill } from "@/components/layout/status-pill";
-import { createClientSupabaseClient } from "@/lib/supabase/client";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import { dispatchSchema, type DispatchFormValues } from "@/lib/validators/dispatch";
-import type { Client, DispatchRecord, NotificationRecord, RequestRecord } from "@/types/domain";
+import type { DispatchRecord, NotificationRecord, RequestRecord } from "@/types/domain";
 
 type DispatchManagerProps = {
   initialDispatches: DispatchRecord[];
   initialRequests: RequestRecord[];
-  clients: Client[];
   initialNotifications: NotificationRecord[];
 };
 
 type DispatchLine = DispatchFormValues["items"][number];
 
-type RequestItemRow = {
-  id: string;
-  material_id: string;
-  approved_quantity: number | null;
-  materials:
-    | { name: string | null; requires_expiry_before_dispatch: boolean | null; unit_of_measure?: string | null }[]
-    | { name: string | null; requires_expiry_before_dispatch: boolean | null; unit_of_measure?: string | null }
-    | null;
-};
-
-type InventoryRow = {
-  id: string;
-  material_id: string;
-};
-
-function buildDispatchNumber() {
-  const now = new Date();
-  return `DSP-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
-    now.getDate(),
-  ).padStart(2, "0")}-${String(now.getTime()).slice(-5)}`;
-}
-
 export function DispatchManager({
   initialDispatches,
   initialRequests,
-  clients,
   initialNotifications,
 }: DispatchManagerProps) {
-  const [dispatches, setDispatches] = useState(initialDispatches);
-  const [emailEvents, setEmailEvents] = useState(initialNotifications);
+  const router = useRouter();
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [formValues, setFormValues] = useState<DispatchFormValues>({
     request_id: "",
@@ -65,54 +44,9 @@ export function DispatchManager({
     [initialRequests],
   );
 
-  async function loadDispatches() {
-    const supabase = createClientSupabaseClient();
-    if (!supabase) {
-      setListError("Supabase client is not configured.");
-      return;
-    }
-
-    const [dispatchResponse, notificationResponse] = await Promise.all([
-      supabase
-        .from("dispatch_overview")
-        .select("*")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("email_events")
-        .select("id, event_type, recipient_email, created_at, sent_at")
-        .order("created_at", { ascending: false })
-        .limit(6),
-    ]);
-
-    if (dispatchResponse.error) {
-      setListError(dispatchResponse.error.message);
-      return;
-    }
-
-    if (notificationResponse.error) {
-      setListError(notificationResponse.error.message);
-      return;
-    }
-
-    setDispatches((dispatchResponse.data ?? []) as DispatchRecord[]);
-    setEmailEvents(
-      ((notificationResponse.data ?? []) as Array<{
-        id: string;
-        event_type: "dispatch_notice" | "expiry_warning";
-        recipient_email: string;
-        created_at: string;
-        sent_at?: string | null;
-      }>).map((item) => ({
-        id: item.id,
-        title: item.event_type === "dispatch_notice" ? "Dispatch email queued" : "Expiry warning email queued",
-        body: `${item.event_type === "dispatch_notice" ? "Dispatch" : "Expiry"} email queued for ${item.recipient_email}.`,
-        kind: "client_email",
-        created_at: item.created_at,
-        read_at: item.sent_at ?? null,
-        route: "/dispatch",
-      })),
-    );
+  async function refreshDispatches() {
     setListError("");
+    router.refresh();
   }
 
   async function loadRequestItems(requestId: string) {
@@ -124,64 +58,16 @@ export function DispatchManager({
       return;
     }
 
-    const supabase = createClientSupabaseClient();
-    if (!supabase) {
-      setFormError("Supabase client is not configured.");
+    const draft = await getDispatchDraftAction(requestId);
+    if (!draft.ok) {
+      setFormError(draft.error);
       return;
     }
-
-    const selectedRequest = approvedRequests.find((request) => request.id === requestId);
-    if (!selectedRequest) {
-      setFormError("Request details could not be loaded.");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("material_request_items")
-      .select("id, material_id, approved_quantity, materials(name, requires_expiry_before_dispatch)")
-      .eq("request_id", requestId);
-
-    if (error) {
-      setFormError(error.message);
-      return;
-    }
-
-    const materialIds = ((data ?? []) as RequestItemRow[]).map((item) => item.material_id);
-    const inventoryResponse = await supabase
-      .from("branch_inventory")
-      .select("id, material_id")
-      .eq("branch_id", selectedRequest.branch_id)
-      .in("material_id", materialIds);
-
-    if (inventoryResponse.error) {
-      setFormError(inventoryResponse.error.message);
-      return;
-    }
-
-    const inventoryMap = new Map(
-      ((inventoryResponse.data ?? []) as InventoryRow[]).map((item) => [item.material_id, item.id]),
-    );
-
-    const rows = ((data ?? []) as RequestItemRow[]).map((item) => {
-      const materialRelation = Array.isArray(item.materials) ? item.materials[0] : item.materials;
-      const branchInventoryId = inventoryMap.get(item.material_id);
-
-      return {
-        request_item_id: item.id,
-        material_id: item.material_id,
-        branch_inventory_id: branchInventoryId ?? "",
-        material_name: materialRelation?.name ?? "Unknown material",
-        expiry_required: Boolean(materialRelation?.requires_expiry_before_dispatch),
-        quantity: Number(item.approved_quantity ?? 1),
-        batch_number: "",
-        expiry_date: "",
-      };
-    }).filter((item) => item.quantity > 0);
 
     setFormValues((current) => ({
       ...current,
       request_id: requestId,
-      items: rows,
+      items: draft.items,
     }));
   }
 
@@ -204,134 +90,12 @@ export function DispatchManager({
       return;
     }
 
-    const request = approvedRequests.find((item) => item.id === parsed.data.request_id);
-    if (!request || request.status !== "approved") {
-      setFormError("Only approved requests can be dispatched.");
-      return;
-    }
-
-    const client = clients.find((item) => item.id === request.client_id);
-    if (!client) {
-      setFormError("Client information is missing for this request.");
-      return;
-    }
-
-    const dispatchNumber = buildDispatchNumber();
-
     startTransition(async () => {
-      const supabase = createClientSupabaseClient();
-      if (!supabase) {
-        setFormError("Supabase client is not configured.");
+      const result = await createDispatchAction(parsed.data);
+      if (!result.ok) {
+        setFormError(result.error);
         return;
       }
-
-      const dispatchInsert = await supabase
-        .from("dispatches")
-        .insert({
-          request_id: request.id,
-          branch_id: request.branch_id,
-          client_id: request.client_id,
-          dispatch_number: dispatchNumber,
-          status: "queued",
-          prepared_by: null,
-          courier_name: parsed.data.courier_name || null,
-          tracking_number: parsed.data.tracking_number || null,
-          eta_date: parsed.data.eta_date || null,
-        })
-        .select("id")
-        .single();
-
-      if (dispatchInsert.error || !dispatchInsert.data) {
-        setFormError(dispatchInsert.error?.message ?? "Unable to create dispatch.");
-        return;
-      }
-
-      const dispatchId = dispatchInsert.data.id as string;
-
-      const itemsInsert = await supabase.from("dispatch_items").insert(
-        parsed.data.items.map((item) => ({
-          dispatch_id: dispatchId,
-          request_item_id: item.request_item_id,
-          material_id: item.material_id,
-          branch_inventory_id: item.branch_inventory_id,
-          quantity: item.quantity,
-          batch_number: item.batch_number || null,
-          expiry_date: item.expiry_date || null,
-        })),
-      );
-
-      if (itemsInsert.error) {
-        await supabase.from("dispatches").delete().eq("id", dispatchId);
-        setFormError(itemsInsert.error.message);
-        return;
-      }
-
-      const requestUpdate = await supabase
-        .from("material_requests")
-        .update({ status: "dispatched" })
-        .eq("id", request.id);
-
-      if (requestUpdate.error) {
-        setFormError(requestUpdate.error.message);
-        return;
-      }
-
-      const dispatchStatusUpdate = await supabase
-        .from("dispatches")
-        .update({
-          status: "dispatched",
-          dispatched_by: null,
-          dispatched_at: new Date().toISOString(),
-        })
-        .eq("id", dispatchId);
-
-      if (dispatchStatusUpdate.error) {
-        setFormError(dispatchStatusUpdate.error.message);
-        return;
-      }
-
-      const notificationInsert = await supabase.from("notifications").insert([
-        {
-          branch_id: request.branch_id,
-          recipient_user_id: null,
-          title: `Dispatch ${dispatchNumber} created`,
-          body: `${client.name} is ready for shipment under request ${request.request_number}.`,
-          kind: "internal",
-          route: "/dispatch",
-        },
-      ]);
-
-      if (notificationInsert.error) {
-        setFormError(notificationInsert.error.message);
-      }
-
-      setDispatches((current) => [
-        {
-          id: dispatchId,
-          dispatch_number: dispatchNumber,
-          request_number: request.request_number,
-          client_name: client.name,
-          branch_name: "Branch",
-          status: "dispatched",
-          courier_name: parsed.data.courier_name || null,
-          tracking_number: parsed.data.tracking_number || null,
-          dispatched_at: new Date().toISOString(),
-          eta_date: parsed.data.eta_date || null,
-        },
-        ...current,
-      ]);
-      setEmailEvents((current) => [
-        {
-          id: `email-${dispatchId}`,
-          title: "Dispatch email queued",
-          body: `Dispatch update queued for ${client.name}${client.email ? ` (${client.email})` : ""}.`,
-          kind: "client_email",
-          created_at: new Date().toISOString(),
-          read_at: null,
-          route: "/dispatch",
-        },
-        ...current,
-      ]);
 
       setSelectedRequestId("");
       setFormValues({
@@ -341,6 +105,7 @@ export function DispatchManager({
         eta_date: "",
         items: [],
       });
+      router.refresh();
     });
   }
 
@@ -494,7 +259,7 @@ export function DispatchManager({
             <h3 className="text-lg font-semibold text-slate-950">Recent dispatches</h3>
             <button
               type="button"
-              onClick={() => startTransition(async () => loadDispatches())}
+              onClick={() => startTransition(async () => refreshDispatches())}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <RefreshCw className={cn("h-4 w-4", isPending ? "animate-spin" : "")} />
@@ -516,8 +281,8 @@ export function DispatchManager({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {dispatches.length ? (
-                  dispatches.map((dispatch) => (
+                {initialDispatches.length ? (
+                  initialDispatches.map((dispatch) => (
                     <tr key={dispatch.id}>
                       <td className="px-4 py-4">
                         <p className="font-semibold text-slate-900">{dispatch.dispatch_number}</p>
@@ -554,7 +319,7 @@ export function DispatchManager({
             <h2 className="text-xl font-semibold text-slate-950">Client email events</h2>
           </div>
           <div className="space-y-3">
-            {emailEvents
+            {initialNotifications
               .filter((item) => item.kind === "client_email")
               .map((item) => (
                 <div key={item.id} className="rounded-3xl border border-cyan-100 bg-cyan-50 px-4 py-4">

@@ -171,7 +171,7 @@ export async function getClients(): Promise<Client[]> {
   const insforge = await getServerInsForge();
   const { data } = await insforge.database
     .from("clients")
-    .select("id, branch_id, client_code, name, email, phone, city, address, status")
+    .select("id, branch_id, client_code, name, email, phone, contact_person, city, state, address, status")
     .order("name");
   return (data ?? []) as Client[];
 }

@@ -26,7 +26,6 @@ export default async function ApprovalPage() {
 
       <ApprovalDashboard
         initialQueue={approvals}
-        currentUser={currentUser!}
       />
     </div>
   );

@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, PencilLine, Plus, RefreshCw, Search } from "lucide-react";
 
-import { createClientSupabaseClient } from "@/lib/supabase/client";
+import { saveClientAction } from "@/app/(app)/clients/actions";
 import { clientSchema, type ClientFormValues } from "@/lib/validators/client";
 import { cn } from "@/lib/utils";
 import type { AppRole, Branch, Client, UserProfile } from "@/types/domain";
@@ -28,7 +29,7 @@ const defaultForm = (branchId?: string | null): ClientFormValues => ({
 });
 
 function canChooseAnyBranch(role: AppRole) {
-  return role === "admin";
+  return role === "superadmin" || role === "admin";
 }
 
 export function ClientManager({
@@ -36,6 +37,7 @@ export function ClientManager({
   branches,
   currentUser,
 }: ClientManagerProps) {
+  const router = useRouter();
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [selectedBranch, setSelectedBranch] = useState(
     canChooseAnyBranch(currentUser.role) ? "all" : (currentUser.branch_id ?? "all"),
@@ -72,33 +74,9 @@ export function ClientManager({
     });
   }, [clients, query, selectedBranch]);
 
-  async function loadClients(branchId = selectedBranch) {
-    const supabase = createClientSupabaseClient();
-    if (!supabase) {
-      setListError("Supabase client is not configured.");
-      return;
-    }
-
+  async function refreshClients() {
     setListError("");
-
-    const branchFilter =
-      branchId === "all" ? undefined : branchId;
-
-    const queryBuilder = supabase
-      .from("clients")
-      .select("id, branch_id, client_code, name, email, phone, contact_person, address, city, state, status")
-      .order("name");
-
-    const { data, error } = branchFilter
-      ? await queryBuilder.eq("branch_id", branchFilter)
-      : await queryBuilder;
-
-    if (error) {
-      setListError(error.message);
-      return;
-    }
-
-    setClients((data ?? []) as Client[]);
+    router.refresh();
   }
 
   function openCreateForm() {
@@ -143,58 +121,29 @@ export function ClientManager({
       return;
     }
 
-    const payload = {
-      branch_id: parsed.data.branch_id,
-      client_code: parsed.data.client_code.trim(),
-      name: parsed.data.name.trim(),
-      email: parsed.data.email?.trim() || null,
-      phone: parsed.data.phone?.trim() || null,
-      contact_person: parsed.data.contact_person?.trim() || null,
-      city: parsed.data.city?.trim() || null,
-      address: parsed.data.address?.trim() || null,
-      status: parsed.data.status,
-    };
-
     startTransition(async () => {
-      const supabase = createClientSupabaseClient();
-      if (!supabase) {
-        setFormError("Supabase client is not configured.");
+      const result = await saveClientAction({
+        ...parsed.data,
+        id: editingClient?.id,
+      });
+
+      if (!result.ok) {
+        setFormError(result.error);
         return;
       }
-
-      const response = editingClient
-        ? await supabase
-            .from("clients")
-            .update(payload)
-            .eq("id", editingClient.id)
-            .select(
-              "id, branch_id, client_code, name, email, phone, contact_person, address, city, state, status",
-            )
-            .single()
-        : await supabase
-            .from("clients")
-            .insert(payload)
-            .select(
-              "id, branch_id, client_code, name, email, phone, contact_person, address, city, state, status",
-            )
-            .single();
-
-      if (response.error) {
-        setFormError(response.error.message);
-        return;
-      }
-
-      const saved = response.data as Client;
 
       setClients((current) => {
         if (editingClient) {
-          return current.map((client) => (client.id === editingClient.id ? saved : client));
+          return current.map((client) =>
+            client.id === editingClient.id ? result.client : client,
+          );
         }
 
-        return [saved, ...current];
+        return [result.client, ...current];
       });
 
       closeForm();
+      router.refresh();
     });
   }
 
@@ -218,9 +167,6 @@ export function ClientManager({
               onChange={(event) => {
                 const nextBranch = event.target.value;
                 setSelectedBranch(nextBranch);
-                startTransition(async () => {
-                  await loadClients(nextBranch);
-                });
               }}
               disabled={!canChooseAnyBranch(currentUser.role)}
               className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -237,7 +183,7 @@ export function ClientManager({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => startTransition(async () => loadClients())}
+              onClick={() => startTransition(async () => refreshClients())}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <RefreshCw className={cn("h-4 w-4", isPending ? "animate-spin" : "")} />

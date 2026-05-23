@@ -5,7 +5,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { assertRouteAccess, ROLE_ACCESS } from "@/lib/access";
 import { getCurrentUserProfile } from "@/lib/auth";
 import {
-  getClients,
   getDispatchEmailEvents,
   getDispatches,
   getRequests,
@@ -14,11 +13,10 @@ import { t } from "@/lib/i18n";
 import { getCurrentLanguage } from "@/lib/i18n-server";
 
 export default async function DispatchPage() {
-  const [dispatches, emailEvents, requests, clients, currentUser, language] = await Promise.all([
+  const [dispatches, emailEvents, requests, currentUser, language] = await Promise.all([
     getDispatches(),
     getDispatchEmailEvents(),
     getRequests(),
-    getClients(),
     getCurrentUserProfile(),
     getCurrentLanguage(),
   ]);
@@ -37,7 +35,6 @@ export default async function DispatchPage() {
       <DispatchManager
         initialDispatches={dispatches}
         initialRequests={requests}
-        clients={clients}
         initialNotifications={emailEvents}
       />
 

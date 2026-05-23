@@ -1,23 +1,23 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Clock3, Loader2, MessageSquareWarning, XCircle } from "lucide-react";
 
+import { applyApprovalDecisionAction } from "@/app/(app)/approval/actions";
 import { StatusPill } from "@/components/layout/status-pill";
-import { createClientSupabaseClient } from "@/lib/supabase/client";
 import { cn, formatDateTime } from "@/lib/utils";
 import { approvalSchema } from "@/lib/validators/approval";
-import type { ApprovalQueueItem, UserProfile } from "@/types/domain";
+import type { ApprovalQueueItem } from "@/types/domain";
 
 type ApprovalDashboardProps = {
   initialQueue: ApprovalQueueItem[];
-  currentUser: UserProfile;
 };
 
 export function ApprovalDashboard({
   initialQueue,
-  currentUser,
 }: ApprovalDashboardProps) {
+  const router = useRouter();
   const [queue, setQueue] = useState(initialQueue);
   const [decisionMap, setDecisionMap] = useState<Record<string, "approved" | "rejected" | "partially_approved">>({});
   const [reasonMap, setReasonMap] = useState<Record<string, string>>({});
@@ -51,101 +51,25 @@ export function ApprovalDashboard({
     setGlobalError("");
 
     startTransition(async () => {
-      const supabase = createClientSupabaseClient();
-      if (!supabase) {
-        setGlobalError("Supabase client is not configured.");
-        return;
-      }
-
-      const itemsResponse = await supabase
-        .from("material_request_items")
-        .select("id, requested_quantity")
-        .eq("request_id", request.id);
-
-      if (itemsResponse.error) {
-        setErrorMap((current) => ({ ...current, [request.id]: itemsResponse.error.message }));
-        return;
-      }
-
-      const itemUpdates = ((itemsResponse.data ?? []) as Array<{
-        id: string;
-        requested_quantity: number;
-      }>).map((item) => ({
-        id: item.id,
+      const result = await applyApprovalDecisionAction({
+        requestId: request.id,
         decision: parsed.data.decision,
-        approved_quantity:
-          parsed.data.decision === "approved"
-            ? item.requested_quantity
-            : parsed.data.decision === "partially_approved"
-              ? Math.max(item.requested_quantity - 1, 0)
-              : 0,
-        approval_reason: parsed.data.reason?.trim() || null,
-      }));
+        reason: parsed.data.reason ?? "",
+      });
 
-      for (const itemUpdate of itemUpdates) {
-        const itemResult = await supabase
-          .from("material_request_items")
-          .update({
-            decision: itemUpdate.decision,
-            approved_quantity: itemUpdate.approved_quantity,
-            approval_reason: itemUpdate.approval_reason,
-          })
-          .eq("id", itemUpdate.id);
-
-        if (itemResult.error) {
-          setErrorMap((current) => ({ ...current, [request.id]: itemResult.error!.message }));
-          return;
-        }
-      }
-
-      const statusUpdate = await supabase
-        .from("material_requests")
-        .update({
-          status:
-            parsed.data.decision === "approved"
-              ? "approved"
-              : parsed.data.decision === "rejected"
-                ? "rejected"
-                : "partially_approved",
-        })
-        .eq("id", request.id);
-
-      if (statusUpdate.error) {
-        setErrorMap((current) => ({ ...current, [request.id]: statusUpdate.error!.message }));
+      if (!result.ok) {
+        setErrorMap((current) => ({ ...current, [request.id]: result.error }));
         return;
-      }
-
-      const notificationPayload = {
-        branch_id: currentUser.branch_id,
-        recipient_user_id: currentUser.id,
-        title: `Request ${request.request_number} ${parsed.data.decision.replaceAll("_", " ")}`,
-        body:
-          parsed.data.decision === "approved"
-            ? `The request for ${request.client_name} has been approved.`
-            : parsed.data.decision === "rejected"
-              ? `The request for ${request.client_name} was rejected. Reason: ${parsed.data.reason}`
-              : `The request for ${request.client_name} was partially approved. Reason: ${parsed.data.reason}`,
-        kind: "internal",
-        route: "/requests",
-      };
-
-      const notificationInsert = await supabase.from("notifications").insert(notificationPayload);
-
-      if (notificationInsert.error) {
-        setGlobalError(notificationInsert.error.message);
       }
 
       setQueue((current) =>
         current.map((item) =>
           item.id === request.id
-            ? {
-                ...item,
-                decision: parsed.data.decision,
-                partial_reason: parsed.data.reason || null,
-              }
+            ? { ...item, decision: parsed.data.decision, partial_reason: parsed.data.reason || null }
             : item,
         ),
       );
+      router.refresh();
     });
   }
 

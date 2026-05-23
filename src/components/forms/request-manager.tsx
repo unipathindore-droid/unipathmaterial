@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, ClipboardPlus, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 
+import { createRequestAction } from "@/app/(app)/requests/actions";
 import { StatusPill } from "@/components/layout/status-pill";
-import { createClientSupabaseClient } from "@/lib/supabase/client";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import { requestSchema, type RequestFormValues } from "@/lib/validators/request";
 import type { Client, Material, RequestRecord, UserProfile } from "@/types/domain";
@@ -29,21 +30,13 @@ const defaultForm: RequestFormValues = {
   items: [defaultItem()],
 };
 
-function buildRequestNumber() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const suffix = String(now.getTime()).slice(-5);
-  return `REQ-${y}${m}${d}-${suffix}`;
-}
-
 export function RequestManager({
   initialRequests,
   clients,
   materials,
   currentUser,
 }: RequestManagerProps) {
+  const router = useRouter();
   const [requests, setRequests] = useState(initialRequests);
   const [formValues, setFormValues] = useState<RequestFormValues>(defaultForm);
   const [formError, setFormError] = useState("");
@@ -51,7 +44,7 @@ export function RequestManager({
   const [isPending, startTransition] = useTransition();
 
   const allowedClients = useMemo(() => {
-    if (currentUser.role === "admin") return clients;
+    if (currentUser.role === "superadmin" || currentUser.role === "admin") return clients;
     return clients.filter((client) => client.branch_id === currentUser.branch_id);
   }, [clients, currentUser.branch_id, currentUser.role]);
 
@@ -60,25 +53,9 @@ export function RequestManager({
     [materials],
   );
 
-  async function loadRequests() {
-    const supabase = createClientSupabaseClient();
-    if (!supabase) {
-      setListError("Supabase client is not configured.");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("request_summary")
-      .select("*")
-      .order("requested_at", { ascending: false });
-
-    if (error) {
-      setListError(error.message);
-      return;
-    }
-
-    setRequests((data ?? []) as RequestRecord[]);
+  async function refreshRequests() {
     setListError("");
+    router.refresh();
   }
 
   function updateItem(index: number, key: keyof RequestFormValues["items"][number], value: string | number) {
@@ -125,85 +102,18 @@ export function RequestManager({
       return;
     }
 
-    const requestNumber = buildRequestNumber();
-    const requestPayload = {
-      branch_id: selectedClient.branch_id,
-      client_id: parsed.data.client_id,
-      request_number: requestNumber,
-      status: "submitted",
-      requested_by: currentUser.id,
-      needed_by: parsed.data.required_by || null,
-      notes: parsed.data.notes?.trim() || null,
-    };
-
-    const itemPayload = parsed.data.items.map((item) => ({
-      material_id: item.material_id,
-      requested_quantity: item.requested_qty,
-    }));
-
     startTransition(async () => {
-      const supabase = createClientSupabaseClient();
-      if (!supabase) {
-        setFormError("Supabase client is not configured.");
+      const result = await createRequestAction(parsed.data);
+
+      if (!result.ok) {
+        setFormError(result.error);
         return;
       }
 
-      const requestInsert = await supabase
-        .from("material_requests")
-        .insert(requestPayload)
-        .select("id")
-        .single();
-
-      if (requestInsert.error || !requestInsert.data) {
-        setFormError(requestInsert.error?.message ?? "Unable to create request.");
-        return;
-      }
-
-      const requestId = requestInsert.data.id as string;
-
-      const itemsInsert = await supabase.from("material_request_items").insert(
-        itemPayload.map((item) => ({
-          request_id: requestId,
-          ...item,
-        })),
-      );
-
-      if (itemsInsert.error) {
-        await supabase.from("material_requests").delete().eq("id", requestId);
-        setFormError(itemsInsert.error.message);
-        return;
-      }
-
-      await supabase.from("notifications").insert({
-        branch_id: selectedClient.branch_id,
-        recipient_user_id: currentUser.id,
-        title: `New request ${requestNumber} created`,
-        body: `${selectedClient.name} submitted a request with ${itemPayload.length} material line items.`,
-        kind: "internal",
-        route: "/requests",
-      });
-
-      setRequests((current) => [
-        {
-          id: requestId,
-          branch_id: selectedClient.branch_id,
-          client_id: selectedClient.id,
-          client_name: selectedClient.name,
-          request_number: requestNumber,
-          status: "submitted",
-          requested_at: new Date().toISOString(),
-          needed_by: requestPayload.needed_by,
-          notes: requestPayload.notes,
-          total_items: itemPayload.length,
-          total_requested_quantity: itemPayload.reduce(
-            (sum, item) => sum + Number(item.requested_quantity),
-            0,
-          ),
-        },
-        ...current,
-      ]);
+      setRequests((current) => [result.request, ...current]);
 
       resetForm();
+      router.refresh();
     });
   }
 
@@ -225,7 +135,7 @@ export function RequestManager({
 
           <button
             type="button"
-            onClick={() => startTransition(async () => loadRequests())}
+            onClick={() => startTransition(async () => refreshRequests())}
             className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <RefreshCw className={cn("h-4 w-4", isPending ? "animate-spin" : "")} />

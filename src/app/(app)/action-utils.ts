@@ -1,0 +1,42 @@
+import { getAuthenticatedServerClient } from "@/lib/insforge/server";
+import type { AppRole, UserProfile } from "@/types/domain";
+
+type AuthorizedActor = Pick<
+  UserProfile,
+  "id" | "full_name" | "email" | "role" | "branch_id" | "is_active" | "approval_status"
+>;
+
+export async function requireAuthorizedActor(allowedRoles: AppRole[]) {
+  const authContext = await getAuthenticatedServerClient();
+
+  if (!authContext?.user) {
+    throw new Error("You must be signed in.");
+  }
+
+  const { data: actor } = await authContext.insforge.database
+    .from("profiles")
+    .select("id, full_name, email, role, branch_id, is_active, approval_status")
+    .eq("id", authContext.user.id)
+    .single();
+
+  if (!actor || !actor.is_active || actor.approval_status !== "approved") {
+    throw new Error("Your account is not approved for this action.");
+  }
+
+  if (!allowedRoles.includes(actor.role as AppRole)) {
+    throw new Error("You are not allowed to perform this action.");
+  }
+
+  return {
+    authContext,
+    actor: actor as AuthorizedActor,
+  };
+}
+
+export function hasGlobalAccess(role: AppRole) {
+  return role === "superadmin" || role === "admin";
+}
+
+export function canAccessBranch(actor: Pick<UserProfile, "role" | "branch_id">, branchId: string) {
+  return hasGlobalAccess(actor.role) || actor.branch_id === branchId;
+}
