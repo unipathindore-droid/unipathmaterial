@@ -125,6 +125,13 @@ export async function writeAuditLog(
     actor_user_id: string | null;
     subject_user_id: string | null;
     action: string;
+    module_name?: string;
+    record_id?: string | null;
+    old_value?: Record<string, unknown> | null;
+    new_value?: Record<string, unknown> | null;
+    user_role?: string | null;
+    ip_address?: string | null;
+    device_info?: string | null;
     details?: Record<string, unknown>;
   },
 ) {
@@ -133,6 +140,13 @@ export async function writeAuditLog(
       actor_user_id: entry.actor_user_id,
       subject_user_id: entry.subject_user_id,
       action: entry.action,
+      module_name: entry.module_name ?? null,
+      record_id: entry.record_id ?? null,
+      old_value: entry.old_value ?? null,
+      new_value: entry.new_value ?? null,
+      user_role: entry.user_role ?? null,
+      ip_address: entry.ip_address ?? null,
+      device_info: entry.device_info ?? null,
       details: entry.details ?? {},
     },
   ]);

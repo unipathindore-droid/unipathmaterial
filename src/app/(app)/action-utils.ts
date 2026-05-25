@@ -3,7 +3,15 @@ import type { AppRole, UserProfile } from "@/types/domain";
 
 type AuthorizedActor = Pick<
   UserProfile,
-  "id" | "full_name" | "email" | "role" | "branch_id" | "is_active" | "approval_status"
+  | "id"
+  | "full_name"
+  | "email"
+  | "role"
+  | "branch_id"
+  | "managed_branch_ids"
+  | "permissions"
+  | "is_active"
+  | "approval_status"
 >;
 
 export async function requireAuthorizedActor(allowedRoles: AppRole[]) {
@@ -15,7 +23,7 @@ export async function requireAuthorizedActor(allowedRoles: AppRole[]) {
 
   const { data: actor } = await authContext.insforge.database
     .from("profiles")
-    .select("id, full_name, email, role, branch_id, is_active, approval_status")
+    .select("id, full_name, email, role, branch_id, managed_branch_ids, permissions, is_active, approval_status")
     .eq("id", authContext.user.id)
     .single();
 
@@ -37,6 +45,26 @@ export function hasGlobalAccess(role: AppRole) {
   return role === "superadmin" || role === "admin";
 }
 
-export function canAccessBranch(actor: Pick<UserProfile, "role" | "branch_id">, branchId: string) {
-  return hasGlobalAccess(actor.role) || actor.branch_id === branchId;
+export function canAccessBranch(
+  actor: Pick<UserProfile, "role" | "branch_id" | "managed_branch_ids">,
+  branchId: string,
+) {
+  if (actor.role === "superadmin") return true;
+  if (actor.role === "admin") {
+    const managed = actor.managed_branch_ids ?? [];
+    return managed.length ? managed.includes(branchId) : true;
+  }
+
+  return actor.branch_id === branchId;
+}
+
+export function hasPermission(
+  actor: Pick<UserProfile, "role" | "permissions">,
+  permission: keyof NonNullable<UserProfile["permissions"]>,
+) {
+  if (actor.role === "superadmin" || actor.role === "admin") {
+    return true;
+  }
+
+  return Boolean(actor.permissions?.[permission]);
 }

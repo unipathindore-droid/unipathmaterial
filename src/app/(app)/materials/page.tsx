@@ -4,19 +4,20 @@ import { MaterialManager } from "@/components/forms/material-manager";
 import { PageHeader } from "@/components/layout/page-header";
 import { assertRouteAccess, ROLE_ACCESS } from "@/lib/access";
 import { getCurrentUserProfile } from "@/lib/auth";
-import { getInventorySignals, getMaterials } from "@/lib/data/app-data";
+import { getBranches, getInventorySignals, getMaterials, getMaterialStockRows } from "@/lib/data/app-data";
 import { t } from "@/lib/i18n";
 import { getCurrentLanguage } from "@/lib/i18n-server";
 import { formatDate } from "@/lib/utils";
 
 export default async function MaterialsPage() {
-  const [materials, inventory, currentUser, language] = await Promise.all([
+  const [currentUser, language] = await Promise.all([getCurrentUserProfile(), getCurrentLanguage()]);
+  assertRouteAccess(currentUser, [...ROLE_ACCESS.materials]);
+  const [materials, inventory, branches, stockRows] = await Promise.all([
     getMaterials(),
     getInventorySignals(),
-    getCurrentUserProfile(),
-    getCurrentLanguage(),
+    getBranches(false),
+    getMaterialStockRows(currentUser),
   ]);
-  assertRouteAccess(currentUser, [...ROLE_ACCESS.materials]);
 
   return (
     <div className="space-y-6">
@@ -30,7 +31,12 @@ export default async function MaterialsPage() {
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-4">
-          <MaterialManager initialMaterials={materials} />
+          <MaterialManager
+            initialMaterials={materials}
+            initialStockRows={stockRows}
+            branches={branches}
+            currentUser={currentUser!}
+          />
         </div>
 
         <div className="space-y-6">

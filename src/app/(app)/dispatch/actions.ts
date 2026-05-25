@@ -219,12 +219,27 @@ export async function createDispatchAction(
       .insert({
         request_id: requestRow.id,
         branch_id: requestRow.branch_id,
+        dispatch_from_branch_id: parsed.data.dispatch_from_branch_id,
+        dispatch_to_branch_id: parsed.data.dispatch_to_branch_id || null,
         client_id: requestRow.client_id,
         dispatch_number: dispatchNumber,
-        status: "queued",
+        dispatch_date: parsed.data.dispatch_date,
+        destination_name: parsed.data.destination_name || null,
+        dispatch_type: parsed.data.dispatch_type,
+        person_name: parsed.data.person_name || null,
+        bus_name: parsed.data.bus_name || null,
+        bus_number: parsed.data.bus_number || null,
+        courier_company_name: parsed.data.courier_name || null,
+        status: parsed.data.dispatch_status,
         prepared_by: actor.id,
         courier_name: parsed.data.courier_name || null,
+        lr_number: parsed.data.lr_number || null,
         tracking_number: parsed.data.tracking_number || null,
+        contact_number: parsed.data.contact_number || null,
+        remarks: parsed.data.remarks || null,
+        received_confirmation: parsed.data.received_confirmation,
+        received_by: parsed.data.received_by || null,
+        received_date: parsed.data.received_date || null,
         eta_date: parsed.data.eta_date || null,
       })
       .select("id")
@@ -273,7 +288,7 @@ export async function createDispatchAction(
     const dispatchStatusUpdate = await authContext.insforge.database
       .from("dispatches")
       .update({
-        status: "dispatched",
+        status: parsed.data.dispatch_status,
         dispatched_by: actor.id,
         dispatched_at: new Date().toISOString(),
       })
@@ -303,6 +318,7 @@ export async function createDispatchAction(
         dispatch_id: dispatchId,
         dispatch_number: dispatchNumber,
         request_id: requestRow.id,
+        dispatch_type: parsed.data.dispatch_type,
       },
     });
 

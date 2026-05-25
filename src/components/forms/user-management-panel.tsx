@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo } from "react";
 
 import { approveUserAction, createUserAction } from "@/app/(app)/users/actions";
 import { DataTable } from "@/components/tables/data-table";
 import { StatusPill } from "@/components/layout/status-pill";
-import type { AuditLogRecord, ManagedUserRecord } from "@/types/domain";
+import type { AuditLogRecord, Branch, ManagedUserRecord, UserProfile } from "@/types/domain";
 import { formatDateTime } from "@/lib/utils";
 
 const initialState = {
@@ -13,89 +13,65 @@ const initialState = {
   success: "",
 };
 
-const roleOptions = [
-  { value: "admin", label: "Admin" },
-  { value: "branch_admin", label: "Branch Admin" },
-  { value: "sales", label: "Sales" },
-  { value: "phlebotomist", label: "Phlebotomist" },
-  { value: "material_team", label: "Material Team" },
-  { value: "dispatch_manager", label: "Dispatch Manager" },
-];
-
 export function UserManagementPanel({
   users,
   pendingUsers,
   recentAuditLogs,
+  branches,
+  currentUser,
 }: {
   users: ManagedUserRecord[];
   pendingUsers: ManagedUserRecord[];
   recentAuditLogs: AuditLogRecord[];
+  branches: Branch[];
+  currentUser: UserProfile;
 }) {
   const [state, formAction, pending] = useActionState(createUserAction, initialState);
+  const roleOptions = useMemo(
+    () =>
+      currentUser.role === "superadmin"
+        ? [
+            { value: "admin", label: "Admin" },
+            { value: "branch_admin", label: "Branch Admin" },
+            { value: "sales", label: "Sales" },
+            { value: "phlebotomist", label: "Phlebotomist" },
+            { value: "material_team", label: "Material Team" },
+            { value: "dispatch_manager", label: "Dispatch Manager" },
+          ]
+        : [
+            { value: "branch_admin", label: "Branch Admin" },
+            { value: "sales", label: "Sales" },
+            { value: "phlebotomist", label: "Phlebotomist" },
+            { value: "material_team", label: "Material Team" },
+            { value: "dispatch_manager", label: "Dispatch Manager" },
+          ],
+    [currentUser.role],
+  );
 
   return (
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-sm">
         <div className="mb-5">
-          <h2 className="text-xl font-semibold text-slate-950">Add a new user</h2>
+          <h2 className="text-xl font-semibold text-slate-950">Create user</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Create the account here, ask the user to verify the email code, and then approve them
-            from the list below.
+            Admin and Super Admin can create users. Super Admin can create Admin accounts and
+            modify permissions at any time.
           </p>
         </div>
 
-        <form action={formAction} className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700" htmlFor="full_name">
-              Full Name
-            </label>
-            <input
-              id="full_name"
-              name="full_name"
-              required
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-              placeholder="User full name"
-            />
-          </div>
+        <form action={formAction} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Full Name" name="full_name" placeholder="User full name" required />
+          <Field label="Mobile Number" name="mobile_number" placeholder="9876543210" />
+          <Field label="Email" name="email" type="email" placeholder="user@unipath.in" required />
+          <Field label="Password" name="password" type="text" placeholder="Minimum 8 characters" required />
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700" htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-              placeholder="user@unipath.in"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700" htmlFor="password">
-              Temporary Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="text"
-              required
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-              placeholder="Minimum 8 characters"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700" htmlFor="role">
-              Role
-            </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Role</span>
             <select
-              id="role"
               name="role"
               required
+              defaultValue={roleOptions[0]?.value}
               className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-              defaultValue="admin"
             >
               {roleOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -103,11 +79,65 @@ export function UserManagementPanel({
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Assigned Branch</span>
+            <select
+              name="branch_id"
+              defaultValue={currentUser.branch_id ?? ""}
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+            >
+              <option value="">No primary branch</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 md:col-span-2 xl:col-span-3">
+            <span className="text-sm font-medium text-slate-700">
+              Managed Branch IDs
+              <span className="ml-2 text-xs text-slate-500">(comma separated, for Admin only)</span>
+            </span>
+            <input
+              name="managed_branch_ids"
+              placeholder={branches.map((branch) => branch.id).slice(0, 2).join(", ")}
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Status</span>
+            <select
+              name="status"
+              defaultValue="active"
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+
+          <div className="space-y-3 md:col-span-2 xl:col-span-3">
+            <p className="text-sm font-medium text-slate-700">Permissions</p>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <PermissionCheckbox name="permission_view_materials" label="View Materials" defaultChecked />
+              <PermissionCheckbox name="permission_manage_materials" label="Manage Materials" />
+              <PermissionCheckbox name="permission_view_dispatch" label="View Dispatch" defaultChecked />
+              <PermissionCheckbox name="permission_manage_dispatch" label="Manage Dispatch" />
+              <PermissionCheckbox name="permission_manage_stock" label="Manage Stock" />
+              <PermissionCheckbox name="permission_view_reports" label="View Reports" />
+              <PermissionCheckbox name="permission_create_requests" label="Create Requests" defaultChecked />
+              <PermissionCheckbox name="permission_manage_clients" label="Manage Clients" />
+            </div>
           </div>
 
-          {(state.error || state.success) ? (
+          {state.error || state.success ? (
             <div
-              className={`md:col-span-2 rounded-2xl border px-4 py-3 text-sm ${
+              className={`xl:col-span-3 rounded-2xl border px-4 py-3 text-sm ${
                 state.error
                   ? "border-rose-200 bg-rose-50 text-rose-700"
                   : "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -117,7 +147,7 @@ export function UserManagementPanel({
             </div>
           ) : null}
 
-          <div className="md:col-span-2">
+          <div className="xl:col-span-3">
             <button
               type="submit"
               disabled={pending}
@@ -148,6 +178,11 @@ export function UserManagementPanel({
                   <p className="text-slate-500">{row.email}</p>
                 </div>
               ),
+            },
+            {
+              key: "mobile",
+              header: "Mobile",
+              render: (row) => row.mobile_number ?? "Not set",
             },
             {
               key: "role",
@@ -208,6 +243,11 @@ export function UserManagementPanel({
               render: (row) => row.role,
             },
             {
+              key: "branch",
+              header: "Branch",
+              render: (row) => row.branch?.name ?? "System-wide",
+            },
+            {
               key: "approval",
               header: "Approval",
               render: (row) => <StatusPill value={row.approval_status ?? "pending"} />,
@@ -232,7 +272,12 @@ export function UserManagementPanel({
             {
               key: "action",
               header: "Action",
-              render: (row) => row.action,
+              render: (row) => (
+                <div>
+                  <p className="font-medium text-slate-900">{row.action}</p>
+                  <p className="text-slate-500">{row.module_name ?? "system"}</p>
+                </div>
+              ),
             },
             {
               key: "actor",
@@ -254,5 +299,49 @@ export function UserManagementPanel({
         />
       </section>
     </div>
+  );
+}
+
+function Field({
+  label,
+  name,
+  placeholder,
+  required,
+  type = "text",
+}: {
+  label: string;
+  name: string;
+  placeholder: string;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <input
+        name={name}
+        type={type}
+        required={required}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+      />
+    </label>
+  );
+}
+
+function PermissionCheckbox({
+  name,
+  label,
+  defaultChecked,
+}: {
+  name: string;
+  label: string;
+  defaultChecked?: boolean;
+}) {
+  return (
+    <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="h-4 w-4 rounded border-slate-300" />
+      <span>{label}</span>
+    </label>
   );
 }

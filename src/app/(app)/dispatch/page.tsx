@@ -13,14 +13,13 @@ import { t } from "@/lib/i18n";
 import { getCurrentLanguage } from "@/lib/i18n-server";
 
 export default async function DispatchPage() {
-  const [dispatches, emailEvents, requests, currentUser, language] = await Promise.all([
-    getDispatches(),
-    getDispatchEmailEvents(),
-    getRequests(),
-    getCurrentUserProfile(),
-    getCurrentLanguage(),
-  ]);
+  const [currentUser, language] = await Promise.all([getCurrentUserProfile(), getCurrentLanguage()]);
   assertRouteAccess(currentUser, [...ROLE_ACCESS.dispatch]);
+  const [dispatches, emailEvents, requests] = await Promise.all([
+    getDispatches(currentUser),
+    getDispatchEmailEvents(),
+    getRequests(currentUser),
+  ]);
 
   return (
     <div className="space-y-6">

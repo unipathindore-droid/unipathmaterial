@@ -19,12 +19,15 @@ export const NAV_ITEMS: ReadonlyArray<{
   roles: AppRole[];
 }> = [
   { href: "/dashboard", labelKey: "nav.dashboard", roles: ["superadmin", "admin", "branch_admin", "sales", "phlebotomist", "material_team", "dispatch_manager"] },
-  { href: "/users", labelKey: "nav.users", roles: ["superadmin"] },
+  { href: "/users", labelKey: "nav.users", roles: ["superadmin", "admin"] },
+  { href: "/branches", labelKey: "nav.branches", roles: ["superadmin", "admin"] },
   { href: "/clients", labelKey: "nav.clients", roles: ["superadmin", "admin", "branch_admin"] },
   { href: "/materials", labelKey: "nav.materials", roles: ["superadmin", "admin", "material_team"] },
   { href: "/requests", labelKey: "nav.requests", roles: ["superadmin", "admin", "branch_admin", "sales", "phlebotomist"] },
   { href: "/approval", labelKey: "nav.approval", roles: ["superadmin", "admin", "material_team"] },
   { href: "/dispatch", labelKey: "nav.dispatch", roles: ["superadmin", "admin", "dispatch_manager"] },
+  { href: "/stock-updates", labelKey: "nav.stock_updates", roles: ["superadmin", "admin"] },
+  { href: "/reports", labelKey: "nav.reports", roles: ["superadmin", "admin"] },
 ] as const;
 
 export const NOTIFICATION_CHANNELS = {

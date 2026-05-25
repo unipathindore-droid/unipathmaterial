@@ -30,8 +30,23 @@ export function DispatchManager({
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [formValues, setFormValues] = useState<DispatchFormValues>({
     request_id: "",
+    dispatch_date: new Date().toISOString().slice(0, 10),
+    dispatch_from_branch_id: "",
+    dispatch_to_branch_id: "",
+    destination_name: "",
+    dispatch_type: "courier",
+    person_name: "",
+    bus_name: "",
+    bus_number: "",
     courier_name: "",
+    lr_number: "",
     tracking_number: "",
+    contact_number: "",
+    remarks: "",
+    dispatch_status: "pending",
+    received_confirmation: false,
+    received_by: "",
+    received_date: "",
     eta_date: "",
     items: [],
   });
@@ -51,7 +66,13 @@ export function DispatchManager({
 
   async function loadRequestItems(requestId: string) {
     setSelectedRequestId(requestId);
-    setFormValues((current) => ({ ...current, request_id: requestId, items: [] }));
+    const request = approvedRequests.find((item) => item.id === requestId);
+    setFormValues((current) => ({
+      ...current,
+      request_id: requestId,
+      dispatch_from_branch_id: request?.branch_id ?? current.dispatch_from_branch_id,
+      items: [],
+    }));
     setFormError("");
 
     if (!requestId) {
@@ -100,8 +121,23 @@ export function DispatchManager({
       setSelectedRequestId("");
       setFormValues({
         request_id: "",
+        dispatch_date: new Date().toISOString().slice(0, 10),
+        dispatch_from_branch_id: "",
+        dispatch_to_branch_id: "",
+        destination_name: "",
+        dispatch_type: "courier",
+        person_name: "",
+        bus_name: "",
+        bus_number: "",
         courier_name: "",
+        lr_number: "",
         tracking_number: "",
+        contact_number: "",
+        remarks: "",
+        dispatch_status: "pending",
+        received_confirmation: false,
+        received_by: "",
+        received_date: "",
         eta_date: "",
         items: [],
       });
@@ -126,6 +162,17 @@ export function DispatchManager({
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Dispatch date">
+              <input
+                type="date"
+                value={formValues.dispatch_date}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, dispatch_date: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+              />
+            </Field>
+
             <Field label="Approved request">
               <select
                 value={selectedRequestId}
@@ -152,7 +199,35 @@ export function DispatchManager({
               />
             </Field>
 
-            <Field label="Courier name">
+            <Field label="Dispatch type">
+              <select
+                value={formValues.dispatch_type}
+                onChange={(event) =>
+                  setFormValues((current) => ({
+                    ...current,
+                    dispatch_type: event.target.value as DispatchFormValues["dispatch_type"],
+                  }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+              >
+                <option value="person">By Person</option>
+                <option value="bus">By Bus</option>
+                <option value="courier">By Courier Service</option>
+              </select>
+            </Field>
+
+            <Field label="Dispatch to branch / destination">
+              <input
+                value={formValues.destination_name}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, destination_name: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+                placeholder="Branch or destination name"
+              />
+            </Field>
+
+            <Field label="Courier company name">
               <input
                 value={formValues.courier_name}
                 onChange={(event) =>
@@ -163,7 +238,7 @@ export function DispatchManager({
               />
             </Field>
 
-            <Field label="Tracking number">
+            <Field label="Tracking number / LR number">
               <input
                 value={formValues.tracking_number}
                 onChange={(event) =>
@@ -171,6 +246,117 @@ export function DispatchManager({
                 }
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
                 placeholder="BD12345678"
+              />
+            </Field>
+
+            <Field label="Person name">
+              <input
+                value={formValues.person_name}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, person_name: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+                placeholder="Dispatch person"
+              />
+            </Field>
+
+            <Field label="Bus name / number">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  value={formValues.bus_name}
+                  onChange={(event) =>
+                    setFormValues((current) => ({ ...current, bus_name: event.target.value }))
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+                  placeholder="Bus name"
+                />
+                <input
+                  value={formValues.bus_number}
+                  onChange={(event) =>
+                    setFormValues((current) => ({ ...current, bus_number: event.target.value }))
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+                  placeholder="Bus number"
+                />
+              </div>
+            </Field>
+
+            <Field label="Contact number">
+              <input
+                value={formValues.contact_number}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, contact_number: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+                placeholder="9876543210"
+              />
+            </Field>
+
+            <Field label="Dispatch status">
+              <select
+                value={formValues.dispatch_status}
+                onChange={(event) =>
+                  setFormValues((current) => ({
+                    ...current,
+                    dispatch_status: event.target.value as DispatchFormValues["dispatch_status"],
+                  }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+              >
+                <option value="pending">Pending</option>
+                <option value="in_transit">In Transit</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Remarks">
+            <textarea
+              value={formValues.remarks}
+              onChange={(event) =>
+                setFormValues((current) => ({ ...current, remarks: event.target.value }))
+              }
+              className="min-h-24 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+              placeholder="Optional movement notes"
+            />
+          </Field>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={formValues.received_confirmation}
+                onChange={(event) =>
+                  setFormValues((current) => ({
+                    ...current,
+                    received_confirmation: event.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              <span>Received confirmation</span>
+            </label>
+
+            <Field label="Received by">
+              <input
+                value={formValues.received_by}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, received_by: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+                placeholder="Receiver name"
+              />
+            </Field>
+
+            <Field label="Received date">
+              <input
+                type="date"
+                value={formValues.received_date}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, received_date: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
               />
             </Field>
           </div>
@@ -270,7 +456,7 @@ export function DispatchManager({
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {["Dispatch", "Client", "Courier", "Dispatched", "ETA", "Status"].map((header) => (
+                  {["Dispatch", "Client", "Mode", "Tracking", "Dispatched", "ETA", "Status"].map((header) => (
                     <th
                       key={header}
                       className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"
@@ -290,7 +476,10 @@ export function DispatchManager({
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600">{dispatch.client_name}</td>
                       <td className="px-4 py-4 text-sm text-slate-600">
-                        {dispatch.courier_name || "Pending"}
+                        {dispatch.dispatch_type ?? "Pending"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600">
+                        {dispatch.tracking_number || dispatch.lr_number || "Pending"}
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600">
                         {formatDateTime(dispatch.dispatched_at)}
@@ -303,7 +492,7 @@ export function DispatchManager({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">
+                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
                       No dispatches found yet.
                     </td>
                   </tr>

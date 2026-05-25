@@ -4,148 +4,128 @@ export type AppLanguage = "en" | "hi";
 
 export const DEFAULT_LANGUAGE: AppLanguage = "en";
 
-export const dictionary = {
-  en: {
-    "language.label": "Language",
-    "language.english": "English",
-    "language.hindi": "Hindi",
-    "nav.dashboard": "Dashboard",
-    "nav.users": "Users",
-    "nav.clients": "Clients",
-    "nav.materials": "Materials",
-    "nav.requests": "Requests",
-    "nav.approval": "Approval",
-    "nav.dispatch": "Dispatch",
-    "role.superadmin": "Super Admin",
-    "role.admin": "Admin",
-    "role.branch_admin": "Branch Admin",
-    "role.sales": "Sales",
-    "role.phlebotomist": "Sales / Phlebotomist",
-    "role.material_team": "Material Team",
-    "role.dispatch_manager": "Dispatch Manager",
-    "shell.multi_branch": "System-wide access",
-    "shell.branch_filtering": "Approval flow and audit logging enabled",
-    "shell.unread_alerts": "unread alerts",
-    "shell.switch_account": "Switch account",
-    "notifications.title": "Notifications",
-    "notifications.unread": "unread",
-    "notifications.mark_all_read": "Mark all read",
-    "notifications.read": "Read",
-    "notifications.open": "Open",
-    "notifications.empty": "No notifications yet.",
-    "pages.dashboard.eyebrow": "Access Dashboard",
-    "pages.dashboard.title": "Manage approvals, account readiness, and audit visibility in one place.",
-    "pages.dashboard.description":
-      "The simplified console keeps the core flow clear: invite users, verify email, approve access, and track every action in the audit log.",
-    "pages.clients.eyebrow": "Clients",
-    "pages.clients.title": "Manage branch-linked pathology clients.",
-    "pages.clients.description":
-      "Track account ownership, branch allocation, contact details, and client status for every lab or collection partner.",
-    "pages.materials.eyebrow": "Materials",
-    "pages.materials.title": "Material master with branch inventory risk controls.",
-    "pages.materials.description":
-      "Define SKUs, expiry rules, reorder levels, and monitor stock signals before branch operations slow down.",
-    "pages.requests.eyebrow": "Requests",
-    "pages.requests.title": "Track material demand from intake to fulfilment.",
-    "pages.requests.description":
-      "Capture client demand, urgency, required-by dates, and request progress with branch-aware visibility.",
-    "pages.approval.eyebrow": "Approval",
-    "pages.approval.title": "Review full and partial approvals with audit-ready reasons.",
-    "pages.approval.description":
-      "Approvers can allow partial allocations when stock is constrained, with mandatory rationale preserved for traceability.",
-    "pages.dispatch.eyebrow": "Dispatch",
-    "pages.dispatch.title": "Control packing, expiry compliance, and client communication.",
-    "pages.dispatch.description":
-      "Only dispatch-ready materials with required expiry dates can move to shipment. Client emails are restricted to dispatch and seven-day expiry notices.",
-    "login.badge": "UniPath SupplyOS",
-    "login.hero_title": "Simple access control for UniPath operations.",
-    "login.hero_description":
-      "Super Admin creates users, users verify their email, approvals happen inside the app, and every important action is written to the audit log.",
-    "login.sign_in": "Sign In",
-    "login.console_title": "Access your operations console",
-    "login.console_description": "Sign in with your approved UniPath account credentials.",
-    "login.highlights.role.title": "Role-aware controls",
-    "login.highlights.role.description":
-      "Only two roles to manage: superadmin and admin.",
-    "login.highlights.dispatch.title": "Approval workflow",
-    "login.highlights.dispatch.description":
-      "Users verify email first, then Super Admin approval unlocks access.",
-    "login.highlights.alerts.title": "Actionable alerts",
-    "login.highlights.alerts.description":
-      "Invites, approvals, and sign-ins are recorded in a simple audit trail.",
-  },
-  hi: {
-    "nav.users": "Users",
-    "role.superadmin": "Super Admin",
-    "language.label": "भाषा",
-    "language.english": "अंग्रेजी",
-    "language.hindi": "हिंदी",
-    "nav.dashboard": "डैशबोर्ड",
-    "nav.clients": "क्लाइंट्स",
-    "nav.materials": "मटेरियल्स",
-    "nav.requests": "रिक्वेस्ट्स",
-    "nav.approval": "अनुमोदन",
-    "nav.dispatch": "डिस्पैच",
-    "role.admin": "एडमिन",
-    "role.branch_admin": "ब्रांच एडमिन",
-    "role.sales": "सेल्स",
-    "role.phlebotomist": "सेल्स / फ्लेबोटोमिस्ट",
-    "role.material_team": "मटेरियल टीम",
-    "role.dispatch_manager": "डिस्पैच मैनेजर",
-    "shell.multi_branch": "मल्टी-ब्रांच एक्सेस",
-    "shell.branch_filtering": "ब्रांच-आधारित डेटा फ़िल्टरिंग सक्षम है",
-    "shell.unread_alerts": "अपठित अलर्ट",
-    "shell.switch_account": "अकाउंट बदलें",
-    "notifications.title": "सूचनाएं",
-    "notifications.unread": "अपठित",
-    "notifications.mark_all_read": "सभी पढ़ें",
-    "notifications.read": "पढ़ें",
-    "notifications.open": "खोलें",
-    "notifications.empty": "अभी कोई सूचना नहीं है।",
-    "pages.dashboard.eyebrow": "एडमिन डैशबोर्ड",
-    "pages.dashboard.title": "रिक्वेस्ट, अनुमोदन, डिस्पैच और एक्सपायरी रिस्क पर ऑपरेशनल कंट्रोल।",
-    "pages.dashboard.description":
-      "एडमिनिस्ट्रेटर्स के लिए एक सिंगल कमांड सेंटर जहां वे ब्रांच गतिविधि मॉनिटर कर सकें, लंबित काम आगे बढ़ा सकें और स्टॉक या एक्सपायरी समस्याओं से पहले हस्तक्षेप कर सकें।",
-    "pages.clients.eyebrow": "क्लाइंट्स",
-    "pages.clients.title": "ब्रांच से जुड़े पैथोलॉजी क्लाइंट्स प्रबंधित करें।",
-    "pages.clients.description":
-      "हर लैब या कलेक्शन पार्टनर के लिए अकाउंट ओनरशिप, ब्रांच अलोकेशन, संपर्क विवरण और क्लाइंट स्टेटस ट्रैक करें।",
-    "pages.materials.eyebrow": "मटेरियल्स",
-    "pages.materials.title": "ब्रांच इन्वेंटरी रिस्क कंट्रोल के साथ मटेरियल मास्टर।",
-    "pages.materials.description":
-      "SKU, एक्सपायरी नियम, रीऑर्डर लेवल तय करें और ब्रांच ऑपरेशंस धीमे होने से पहले स्टॉक संकेत मॉनिटर करें।",
-    "pages.requests.eyebrow": "रिक्वेस्ट्स",
-    "pages.requests.title": "इंटेक से फुलफिलमेंट तक मटेरियल डिमांड ट्रैक करें।",
-    "pages.requests.description":
-      "क्लाइंट डिमांड, अर्जेंसी, आवश्यक तिथि और रिक्वेस्ट प्रगति को ब्रांच-आधारित विजिबिलिटी के साथ कैप्चर करें।",
-    "pages.approval.eyebrow": "अनुमोदन",
-    "pages.approval.title": "ऑडिट-रेडी कारणों के साथ पूर्ण और आंशिक अनुमोदन की समीक्षा करें।",
-    "pages.approval.description":
-      "जब स्टॉक सीमित हो, तब अप्रूवर्स आंशिक आवंटन की अनुमति दे सकते हैं और कारण ट्रेसबिलिटी के लिए सुरक्षित रहता है।",
-    "pages.dispatch.eyebrow": "डिस्पैच",
-    "pages.dispatch.title": "पैकिंग, एक्सपायरी अनुपालन और क्लाइंट कम्युनिकेशन नियंत्रित करें।",
-    "pages.dispatch.description":
-      "सिर्फ डिस्पैच-रेडी मटेरियल जिनकी आवश्यक एक्सपायरी तिथि मौजूद हो, उन्हें ही शिपमेंट में भेजा जा सकता है। क्लाइंट ईमेल केवल डिस्पैच और सात-दिन एक्सपायरी नोटिस तक सीमित हैं।",
-    "login.badge": "UniPath SupplyOS",
-    "login.hero_title": "ब्रांच-आधारित ऑपरेशंस के लिए बनाया गया पैथोलॉजी मटेरियल सप्लाई मैनेजमेंट।",
-    "login.hero_description":
-      "एक ही ऑपरेशनल वर्कस्पेस से हर ब्रांच में क्लाइंट्स, मटेरियल्स, अनुमोदन, डिस्पैच, डिलीवरी, एक्सपायरी कंट्रोल और ऑटो-रीऑर्डर संकेत प्रबंधित करें।",
-    "login.sign_in": "साइन इन",
-    "login.console_title": "अपना ऑपरेशंस कंसोल एक्सेस करें",
-    "login.console_description": "अपनी असाइन की गई ब्रांच और रोल के लिए Supabase Auth क्रेडेंशियल्स का उपयोग करें।",
-    "login.highlights.role.title": "रोल-आधारित कंट्रोल",
-    "login.highlights.role.description":
-      "ब्रांच एडमिन, सेल्स, मटेरियल टीम और डिस्पैच के लिए अलग-अलग ऑपरेशनल लेन।",
-    "login.highlights.dispatch.title": "डिस्पैच अनुपालन",
-    "login.highlights.dispatch.description":
-      "अनुमोदन, एक्सपायरी, डिस्पैच पैकिंग और प्रूफ ऑफ डिलीवरी एक ही जगह ट्रैक करें।",
-    "login.highlights.alerts.title": "कार्रवाई योग्य अलर्ट",
-    "login.highlights.alerts.description":
-      "इंटरनल अलर्ट ऐप में रहते हैं, जबकि क्लाइंट ईमेल सिर्फ डिस्पैच और एक्सपायरी नोटिस तक सीमित रहते हैं।",
-  },
+const en = {
+  "language.label": "Language",
+  "language.english": "English",
+  "language.hindi": "Hindi",
+  "nav.dashboard": "Dashboard",
+  "nav.users": "Users",
+  "nav.branches": "Branches",
+  "nav.clients": "Clients",
+  "nav.materials": "Materials",
+  "nav.requests": "Requests",
+  "nav.approval": "Approval",
+  "nav.dispatch": "Dispatch",
+  "nav.stock_updates": "Stock Updates",
+  "nav.reports": "Reports",
+  "role.superadmin": "Super Admin",
+  "role.admin": "Admin",
+  "role.branch_admin": "Branch Admin",
+  "role.sales": "Sales",
+  "role.phlebotomist": "Sales / Phlebotomist",
+  "role.material_team": "Material Team",
+  "role.dispatch_manager": "Dispatch Manager",
+  "shell.multi_branch": "System-wide access",
+  "shell.branch_filtering": "Branch filtering, approval control, and audit logging enabled",
+  "shell.unread_alerts": "unread alerts",
+  "shell.switch_account": "Switch account",
+  "notifications.title": "Notifications",
+  "notifications.unread": "unread",
+  "notifications.mark_all_read": "Mark all read",
+  "notifications.read": "Read",
+  "notifications.open": "Open",
+  "notifications.empty": "No notifications yet.",
+  "pages.dashboard.eyebrow": "Operations Dashboard",
+  "pages.dashboard.title": "Manage approvals, stock visibility, and dispatch readiness in one place.",
+  "pages.dashboard.description":
+    "The operations console keeps branch activity visible for admins and surfaces stock, request, and dispatch signals before work slows down.",
+  "pages.users.eyebrow": "User Management",
+  "pages.users.title": "Create, approve, and manage branch access.",
+  "pages.users.description":
+    "Super Admin and Admin can create users, approve access after email verification, and keep every major change visible in the audit trail.",
+  "pages.branches.eyebrow": "Branches",
+  "pages.branches.title": "Create and govern branches with role-aware restrictions.",
+  "pages.branches.description":
+    "Only Super Admin and Admin can manage branches. Super Admin can control every branch, while Admin can work only on assigned branches when restrictions are enabled.",
+  "pages.clients.eyebrow": "Clients",
+  "pages.clients.title": "Manage branch-linked pathology clients.",
+  "pages.clients.description":
+    "Track client ownership, branch mapping, contact details, and operational status for every pathology partner.",
+  "pages.materials.eyebrow": "Materials",
+  "pages.materials.title": "Material master and branch-wise stock management.",
+  "pages.materials.description":
+    "Maintain material codes, categories, stock thresholds, and branch allocations with manual edits plus Excel upload and export.",
+  "pages.requests.eyebrow": "Requests",
+  "pages.requests.title": "Track material demand from request to fulfilment.",
+  "pages.requests.description":
+    "Capture branch demand, client linkage, urgency, required-by dates, and request progress with operational visibility.",
+  "pages.approval.eyebrow": "Approval",
+  "pages.approval.title": "Review full and partial approvals with clear audit reasons.",
+  "pages.approval.description":
+    "Approvers can allow partial allocations when stock is constrained, and the rationale stays visible for traceability.",
+  "pages.dispatch.eyebrow": "Dispatch",
+  "pages.dispatch.title": "Move materials by person, bus, or courier with delivery tracking.",
+  "pages.dispatch.description":
+    "Track dispatch source, destination, transport details, quantity, and delivery confirmation with branch-aware access control.",
+  "pages.stock_updates.eyebrow": "Monthly Stock",
+  "pages.stock_updates.title": "Record monthly branch stock updates with history and Excel support.",
+  "pages.stock_updates.description":
+    "Capture opening, received, used, damaged, and closing stock month by month and keep the branch history export-ready.",
+  "pages.reports.eyebrow": "Reports",
+  "pages.reports.title": "Review stock, dispatch, activity, upload, and deletion reports.",
+  "pages.reports.description":
+    "Branch stock, monthly stock, usage, low stock, dispatch movement, user activity, upload history, and deleted material logs are available in one reporting surface.",
+  "login.badge": "UniPath SupplyOS",
+  "login.hero_title": "Simple access control for UniPath operations.",
+  "login.hero_description":
+    "Super Admin creates users, users verify email, approvals happen inside the app, and every important action is written to the audit log.",
+  "login.sign_in": "Sign In",
+  "login.console_title": "Access your operations console",
+  "login.console_description": "Sign in with your approved UniPath account credentials.",
+  "login.highlights.role.title": "Role-aware controls",
+  "login.highlights.role.description":
+    "Super Admin and Admin manage access, while branch teams work only inside the permissions they are given.",
+  "login.highlights.dispatch.title": "Approval workflow",
+  "login.highlights.dispatch.description":
+    "Users verify email first, then Admin or Super Admin approval unlocks access.",
+  "login.highlights.alerts.title": "Actionable alerts",
+  "login.highlights.alerts.description":
+    "Invites, approvals, stock updates, and sign-ins are recorded in a simple audit trail.",
 } as const;
 
-export type TranslationKey = keyof typeof dictionary.en;
+const hi: Record<keyof typeof en, string> = {
+  ...en,
+  "language.label": "भाषा",
+  "language.english": "अंग्रेज़ी",
+  "language.hindi": "हिंदी",
+  "nav.dashboard": "डैशबोर्ड",
+  "nav.users": "यूज़र",
+  "nav.branches": "ब्रांच",
+  "nav.clients": "क्लाइंट",
+  "nav.materials": "मटेरियल",
+  "nav.requests": "रिक्वेस्ट",
+  "nav.approval": "अनुमोदन",
+  "nav.dispatch": "डिस्पैच",
+  "nav.stock_updates": "मासिक स्टॉक",
+  "nav.reports": "रिपोर्ट्स",
+  "role.superadmin": "सुपर एडमिन",
+  "role.admin": "एडमिन",
+  "pages.users.eyebrow": "यूज़र प्रबंधन",
+  "pages.branches.eyebrow": "ब्रांच",
+  "pages.materials.eyebrow": "मटेरियल",
+  "pages.stock_updates.eyebrow": "मासिक स्टॉक",
+  "pages.reports.eyebrow": "रिपोर्ट्स",
+  "login.sign_in": "साइन इन",
+  "login.console_title": "अपना ऑपरेशंस कंसोल खोलें",
+  "login.console_description": "अपने अनुमोदित UniPath अकाउंट से साइन इन करें।",
+};
+
+export const dictionary = {
+  en,
+  hi,
+} as const;
+
+export type TranslationKey = keyof typeof en;
 
 export function t(language: AppLanguage, key: TranslationKey) {
   return dictionary[language][key] ?? dictionary.en[key];

@@ -2,59 +2,132 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Boxes, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+import {
+  AlertCircle,
+  Boxes,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 
-import { createMaterialAction } from "@/app/(app)/materials/actions";
+import {
+  deleteMaterialAction,
+  saveMaterialAction,
+  uploadMaterialsWorkbookAction,
+} from "@/app/(app)/materials/actions";
 import { StatusPill } from "@/components/layout/status-pill";
 import { cn } from "@/lib/utils";
 import { materialSchema, type MaterialFormValues } from "@/lib/validators/material";
-import type { Material } from "@/types/domain";
+import type { Branch, Material, StockSnapshot, UserProfile } from "@/types/domain";
 
 type MaterialManagerProps = {
   initialMaterials: Material[];
+  initialStockRows: StockSnapshot[];
+  branches: Branch[];
+  currentUser: UserProfile;
 };
 
 const defaultForm: MaterialFormValues = {
   sku: "",
+  material_code: "",
   name: "",
   category: "",
   unit_of_measure: "unit",
   expiry_required: false,
   min_threshold: 0,
+  opening_stock: 0,
+  current_stock: 0,
+  branch_id: "",
   active: true,
 };
 
-export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
+export function MaterialManager({
+  initialMaterials,
+  initialStockRows,
+  branches,
+  currentUser,
+}: MaterialManagerProps) {
   const router = useRouter();
   const [materials, setMaterials] = useState(initialMaterials);
+  const [stockRows, setStockRows] = useState(initialStockRows);
   const [query, setQuery] = useState("");
+  const [branchFilter, setBranchFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
-  const [formValues, setFormValues] = useState<MaterialFormValues>(defaultForm);
+  const [formValues, setFormValues] = useState<MaterialFormValues>({
+    ...defaultForm,
+    branch_id: currentUser.branch_id ?? branches[0]?.id ?? "",
+  });
   const [formError, setFormError] = useState("");
-  const [listError, setListError] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const filteredMaterials = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const value = query.trim().toLowerCase();
-    if (!value) return materials;
+    return stockRows.filter((row) => {
+      const branchMatch = branchFilter ? row.branch_id === branchFilter : true;
+      const searchMatch = value
+        ? [
+            row.material_name,
+            row.material_code ?? "",
+            row.branch_name ?? "",
+            row.status ?? "",
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(value)
+        : true;
 
-    return materials.filter((material) =>
-      [material.name, material.sku, material.category, material.unit_of_measure]
-        .join(" ")
-        .toLowerCase()
-        .includes(value),
-    );
-  }, [materials, query]);
+      return branchMatch && searchMatch;
+    });
+  }, [branchFilter, query, stockRows]);
 
-  async function refreshMaterials() {
-    setListError("");
-    router.refresh();
-  }
+  const activeBranchOptions = useMemo(
+    () => branches.filter((branch) => branch.is_active !== false),
+    [branches],
+  );
+  const inputClassName =
+    "w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500";
 
   function closeForm() {
     setFormOpen(false);
-    setFormValues(defaultForm);
+    setFormValues({
+      ...defaultForm,
+      branch_id: currentUser.branch_id ?? branches[0]?.id ?? "",
+    });
     setFormError("");
+  }
+
+  function refreshPage() {
+    setFormError("");
+    setUploadError("");
+    setUploadSuccess("");
+    router.refresh();
+  }
+
+  function startEdit(material: Material) {
+    const row = stockRows.find((item) => item.material_id === material.id);
+    setFormValues({
+      id: material.id,
+      sku: material.sku,
+      material_code: material.material_code ?? "",
+      name: material.name,
+      category: material.category,
+      unit_of_measure: material.unit_of_measure,
+      expiry_required: material.expiry_required,
+      min_threshold: material.min_threshold,
+      opening_stock: row?.opening_stock ?? row?.available_quantity ?? 0,
+      current_stock: row?.available_quantity ?? 0,
+      branch_id: row?.branch_id ?? currentUser.branch_id ?? branches[0]?.id ?? "",
+      active: material.active,
+    });
+    setFormError("");
+    setFormOpen(true);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -68,15 +141,62 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
     }
 
     startTransition(async () => {
-      const result = await createMaterialAction(parsed.data);
+      const result = await saveMaterialAction(parsed.data);
 
       if (!result.ok) {
         setFormError(result.error);
         return;
       }
 
-      setMaterials((current) => [result.material, ...current]);
+      setMaterials((current) => {
+        const exists = current.some((item) => item.id === result.material.id);
+        if (!exists) {
+          return [result.material, ...current];
+        }
+
+        return current.map((item) => (item.id === result.material.id ? result.material : item));
+      });
+
+      refreshPage();
       closeForm();
+    });
+  }
+
+  async function handleDelete(materialId: string) {
+    setFormError("");
+    startTransition(async () => {
+      const result = await deleteMaterialAction(materialId);
+      if (!result.ok) {
+        setFormError(result.error);
+        return;
+      }
+
+      setMaterials((current) => current.filter((item) => item.id !== materialId));
+      setStockRows((current) => current.filter((item) => item.material_id !== materialId));
+      router.refresh();
+    });
+  }
+
+  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    setUploadError("");
+    setUploadSuccess("");
+
+    if (!file) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    startTransition(async () => {
+      const result = await uploadMaterialsWorkbookAction(formData);
+      if (!result.ok) {
+        setUploadError(result.error);
+        return;
+      }
+
+      setUploadSuccess(`${result.imported} material row(s) imported successfully.`);
       router.refresh();
     });
   }
@@ -84,21 +204,47 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
   return (
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by material, SKU, category..."
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-            />
-          </label>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="grid flex-1 gap-4 md:grid-cols-[1fr_220px]">
+            <label className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by material, code, branch, or status..."
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+              />
+            </label>
+            <select
+              value={branchFilter}
+              onChange={(event) => setBranchFilter(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+            >
+              <option value="">All branches</option>
+              {activeBranchOptions.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+              <FileSpreadsheet className="h-4 w-4" />
+              Upload Excel
+              <input type="file" accept=".xlsx,.xls" onChange={handleUpload} className="hidden" />
+            </label>
+            <a
+              href="/api/exports/materials"
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              <Download className="h-4 w-4" />
+              Export Excel
+            </a>
             <button
               type="button"
-              onClick={() => startTransition(async () => refreshMaterials())}
+              onClick={() => startTransition(async () => refreshPage())}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <RefreshCw className={cn("h-4 w-4", isPending ? "animate-spin" : "")} />
@@ -118,10 +264,16 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
           </div>
         </div>
 
-        {listError ? (
+        {uploadError ? (
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <AlertCircle className="mt-0.5 h-4 w-4" />
-            <span>{listError}</span>
+            <span>{uploadError}</span>
+          </div>
+        ) : null}
+
+        {uploadSuccess ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {uploadSuccess}
           </div>
         ) : null}
       </section>
@@ -131,41 +283,76 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                {["Material", "Category", "Unit", "Expiry Required", "Min Threshold", "Status"].map(
-                  (header) => (
-                    <th
-                      key={header}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"
-                    >
-                      {header}
-                    </th>
-                  ),
-                )}
+                {[
+                  "Material",
+                  "Branch",
+                  "Unit",
+                  "Opening",
+                  "Current",
+                  "Minimum",
+                  "Status",
+                  "Actions",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"
+                  >
+                    {header}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredMaterials.length ? (
-                filteredMaterials.map((material) => (
-                  <tr key={material.id}>
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-slate-900">{material.name}</p>
-                      <p className="text-sm text-slate-500">{material.sku}</p>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-600">{material.category}</td>
-                    <td className="px-4 py-4 text-sm text-slate-600">{material.unit_of_measure}</td>
-                    <td className="px-4 py-4">
-                      <StatusPill value={material.expiry_required ? "approved" : "draft"} />
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-600">{material.min_threshold}</td>
-                    <td className="px-4 py-4">
-                      <StatusPill value={material.active ? "active" : "inactive"} />
-                    </td>
-                  </tr>
-                ))
+              {filteredRows.length ? (
+                filteredRows.map((row) => {
+                  const material = materials.find((item) => item.id === row.material_id);
+                  return (
+                    <tr key={row.id}>
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-slate-900">{row.material_name}</p>
+                        <p className="text-sm text-slate-500">
+                          {row.material_code ?? material?.material_code ?? material?.sku ?? "No code"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600">{row.branch_name ?? "Not assigned"}</td>
+                      <td className="px-4 py-4 text-sm text-slate-600">
+                        {material?.unit_of_measure ?? "unit"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600">{row.opening_stock ?? 0}</td>
+                      <td className="px-4 py-4 text-sm text-slate-600">{row.available_quantity}</td>
+                      <td className="px-4 py-4 text-sm text-slate-600">{row.reorder_level}</td>
+                      <td className="px-4 py-4">
+                        <StatusPill value={row.status ?? (material?.active ? "active" : "inactive")} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {material ? (
+                            <button
+                              type="button"
+                              onClick={() => startEdit(material)}
+                              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(row.material_id)}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">
-                    No materials found for the current search.
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
+                    No materials found for the current filters.
                   </td>
                 </tr>
               )}
@@ -181,10 +368,10 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
               <Boxes className="h-5 w-5 text-teal-700" />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-700">
-                  New Material
+                  Material Master
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                  Add material master
+                  {formValues.id ? "Edit material" : "Add material master"}
                 </h2>
               </div>
             </div>
@@ -198,71 +385,64 @@ export function MaterialManager({ initialMaterials }: MaterialManagerProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+            <FormField label="Material code">
+              <input value={formValues.material_code} onChange={(event) => setFormValues((current) => ({ ...current, material_code: event.target.value }))} className={inputClassName} placeholder="MAT-1001" />
+            </FormField>
+
             <FormField label="SKU">
-              <input
-                value={formValues.sku}
-                onChange={(event) => setFormValues((current) => ({ ...current, sku: event.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-                placeholder="MAT-1001"
-              />
+              <input value={formValues.sku} onChange={(event) => setFormValues((current) => ({ ...current, sku: event.target.value }))} className={inputClassName} placeholder="SKU-1001" />
             </FormField>
 
             <FormField label="Material name">
-              <input
-                value={formValues.name}
-                onChange={(event) => setFormValues((current) => ({ ...current, name: event.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-                placeholder="EDTA Blood Collection Tubes"
-              />
+              <input value={formValues.name} onChange={(event) => setFormValues((current) => ({ ...current, name: event.target.value }))} className={inputClassName} placeholder="Red Tube" />
             </FormField>
 
             <FormField label="Category">
-              <input
-                value={formValues.category}
-                onChange={(event) => setFormValues((current) => ({ ...current, category: event.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-                placeholder="Collection"
-              />
+              <input value={formValues.category} onChange={(event) => setFormValues((current) => ({ ...current, category: event.target.value }))} className={inputClassName} placeholder="Consumable" />
             </FormField>
 
-            <FormField label="Unit of measure">
-              <input
-                value={formValues.unit_of_measure}
-                onChange={(event) =>
-                  setFormValues((current) => ({ ...current, unit_of_measure: event.target.value }))
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-                placeholder="box"
-              />
+            <FormField label="Unit">
+              <input value={formValues.unit_of_measure} onChange={(event) => setFormValues((current) => ({ ...current, unit_of_measure: event.target.value }))} className={inputClassName} placeholder="box" />
             </FormField>
 
-            <FormField label="Minimum threshold">
-              <input
-                type="number"
-                min={0}
-                value={formValues.min_threshold}
-                onChange={(event) =>
-                  setFormValues((current) => ({
-                    ...current,
-                    min_threshold: Number(event.target.value),
-                  }))
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
-              />
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Branch</span>
+              <select
+                value={formValues.branch_id}
+                onChange={(event) => setFormValues((current) => ({ ...current, branch_id: event.target.value }))}
+                className={inputClassName}
+              >
+                <option value="">Select branch</option>
+                {activeBranchOptions.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <FormField label="Opening stock">
+              <input type="number" min={0} value={formValues.opening_stock} onChange={(event) => setFormValues((current) => ({ ...current, opening_stock: Number(event.target.value) }))} className={inputClassName} />
             </FormField>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Current stock">
+              <input type="number" min={0} value={formValues.current_stock} onChange={(event) => setFormValues((current) => ({ ...current, current_stock: Number(event.target.value) }))} className={inputClassName} />
+            </FormField>
+
+            <FormField label="Minimum stock alert level">
+              <input type="number" min={0} value={formValues.min_threshold} onChange={(event) => setFormValues((current) => ({ ...current, min_threshold: Number(event.target.value) }))} className={inputClassName} />
+            </FormField>
+
+            <div className="grid gap-4 sm:grid-cols-2 md:col-span-2">
               <ToggleCard
                 label="Expiry required"
                 description="Require expiry date before dispatch."
                 checked={formValues.expiry_required}
-                onChange={(checked) =>
-                  setFormValues((current) => ({ ...current, expiry_required: checked }))
-                }
+                onChange={(checked) => setFormValues((current) => ({ ...current, expiry_required: checked }))}
               />
               <ToggleCard
                 label="Active material"
-                description="Show in request and dispatch workflows."
+                description="Allow material in branch workflows."
                 checked={formValues.active}
                 onChange={(checked) => setFormValues((current) => ({ ...current, active: checked }))}
               />
