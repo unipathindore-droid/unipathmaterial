@@ -196,22 +196,35 @@ export async function getDashboardData(profile: UserProfile): Promise<DashboardD
   }
 }
 
-export async function getClients(): Promise<Client[]> {
+export async function getClients(profile?: UserProfile | null): Promise<Client[]> {
   const insforge = await getServerInsForge();
-  const { data } = await insforge.database
+  let query = insforge.database
     .from("clients")
     .select("id, branch_id, client_code, name, email, phone, contact_person, city, state, address, status")
     .order("name");
+
+  if (profile) {
+    query = applyBranchFilter(query, profile);
+  }
+
+  const { data } = await query;
   return (data ?? []) as Client[];
 }
 
-export async function getBranches(includeInactive = true): Promise<Branch[]> {
+export async function getBranches(
+  profile?: UserProfile | null,
+  includeInactive = true,
+): Promise<Branch[]> {
   const insforge = await getServerInsForge();
   let query = insforge.database
     .from("branches")
     .select("id, name, code, address, city, state, pincode, contact_person, contact_number, is_active, deleted_at")
     .is("deleted_at", null)
     .order("name");
+
+  if (profile) {
+    query = applyBranchFilter(query, profile, "id");
+  }
 
   if (!includeInactive) {
     query = query.eq("is_active", true);

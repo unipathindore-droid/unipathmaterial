@@ -1,17 +1,50 @@
 "use client";
 
-import { useActionState } from "react";
-import { signInAction } from "@/app/(auth)/login/actions";
-
-const initialState = {
-  error: "",
-};
+import { FormEvent, useState } from "react";
 
 export function LoginForm() {
-  const [state, formAction, isPending] = useActionState(signInAction, initialState);
+  const [error, setError] = useState("");
+  const [isPending, setIsPending] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setIsPending(true);
+
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      const response = await fetch("/api/auth/password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: String(formData.get("email") ?? ""),
+          password: String(formData.get("password") ?? ""),
+        }),
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        ok?: boolean;
+      };
+
+      if (!response.ok || !result.ok) {
+        setError(result.error ?? "Sign in failed.");
+        setIsPending(false);
+        return;
+      }
+
+      window.location.assign("/dashboard");
+    } catch {
+      setError("Unable to sign in right now. Please check your connection and try again.");
+      setIsPending(false);
+    }
+  }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700" htmlFor="email">
             Email
@@ -40,9 +73,9 @@ export function LoginForm() {
           />
         </div>
 
-        {state.error ? (
+        {error ? (
           <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {state.error}
+            {error}
           </p>
         ) : null}
 

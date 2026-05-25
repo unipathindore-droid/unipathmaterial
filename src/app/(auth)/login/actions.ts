@@ -15,6 +15,7 @@ import {
 
 type LoginState = {
   error: string;
+  success?: boolean;
 };
 
 async function getAppBaseUrl() {
@@ -31,7 +32,7 @@ async function getAppBaseUrl() {
 
 export async function signInAction(_: LoginState, formData: FormData): Promise<LoginState> {
   if (!isInsForgeConfigured()) {
-    redirect("/dashboard");
+    return { error: "", success: true };
   }
 
   const email = String(formData.get("email") ?? "");
@@ -101,7 +102,7 @@ export async function signInAction(_: LoginState, formData: FormData): Promise<L
 
   revalidatePath("/dashboard");
 
-  redirect("/dashboard");
+  return { error: "", success: true };
 }
 
 export async function initiateGoogleSignInAction() {

@@ -12,7 +12,7 @@ export default async function StockUpdatesPage() {
 
   const [rows, branches, materials] = await Promise.all([
     getMonthlyStockUpdates(currentUser),
-    getBranches(false),
+    getBranches(currentUser, false),
     getMaterials(),
   ]);
 

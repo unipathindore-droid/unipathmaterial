@@ -7,7 +7,7 @@ import { getAdminConsoleData, getBranches } from "@/lib/data/app-data";
 export default async function UsersPage() {
   const currentUser = await getCurrentUserProfile();
   assertRouteAccess(currentUser, [...ROLE_ACCESS.users]);
-  const [data, branches] = await Promise.all([getAdminConsoleData(currentUser!), getBranches()]);
+  const [data, branches] = await Promise.all([getAdminConsoleData(currentUser!), getBranches(currentUser)]);
 
   return (
     <div className="space-y-6">

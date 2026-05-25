@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { requireAuthorizedActor } from "@/app/(app)/action-utils";
+import { canAccessBranch, requireAuthorizedActor } from "@/app/(app)/action-utils";
 import { createServerInsForgeClient, writeAuditLog } from "@/lib/insforge/server";
 import type { AppRole, UserPermissionSet } from "@/types/domain";
 
@@ -183,6 +183,28 @@ export async function approveUserAction(formData: FormData) {
 
   if (!userId) {
     throw new Error("Missing user id.");
+  }
+
+  const { data: targetProfile, error: targetError } = await authContext.insforge.database
+    .from("profiles")
+    .select("id, role, branch_id")
+    .eq("id", userId)
+    .single();
+
+  if (targetError || !targetProfile) {
+    throw new Error(targetError?.message ?? "User not found.");
+  }
+
+  if (actor.role !== "superadmin" && targetProfile.role === "admin") {
+    throw new Error("Admin users cannot approve another admin account.");
+  }
+
+  if (
+    actor.role !== "superadmin" &&
+    targetProfile.branch_id &&
+    !canAccessBranch(actor, targetProfile.branch_id)
+  ) {
+    throw new Error("You can approve only users from your managed branches.");
   }
 
   await authContext.insforge.database

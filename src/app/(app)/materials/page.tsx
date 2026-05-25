@@ -15,7 +15,7 @@ export default async function MaterialsPage() {
   const [materials, inventory, branches, stockRows] = await Promise.all([
     getMaterials(),
     getInventorySignals(),
-    getBranches(false),
+    getBranches(currentUser, false),
     getMaterialStockRows(currentUser),
   ]);
 

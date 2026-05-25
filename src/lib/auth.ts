@@ -13,7 +13,7 @@ async function getProfileRecord(): Promise<UserProfile | null> {
       authContext.insforge.database
         .from("profiles")
         .select(
-          "id, full_name, email, mobile_number, role, branch_id, managed_branch_ids, permissions, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, branch:branches(id, name, code, address, city, state, pincode, contact_person, contact_number, is_active, deleted_at)",
+          "id, full_name, email, mobile_number, role, branch_id, managed_branch_ids, permissions, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, branch:branches!profiles_branch_id_fkey(id, name, code, address, city, state, pincode, contact_person, contact_number, is_active, deleted_at)",
         )
         .eq("id", authContext.user.id)
         .single(),

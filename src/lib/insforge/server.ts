@@ -9,12 +9,49 @@ export const INSFORGE_REFRESH_COOKIE = "insforge_refresh_token";
 export const INSFORGE_CODE_VERIFIER_COOKIE = "insforge_code_verifier";
 const INSFORGE_REQUEST_TIMEOUT_MS = 10000;
 
-const AUTH_COOKIE_OPTIONS = {
+export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",
 };
+
+type AccessTokenUser = {
+  id: string;
+  email?: string | null;
+};
+
+function getUserFromAccessToken(accessToken: string): AccessTokenUser | null {
+  try {
+    const [, payload] = accessToken.split(".");
+
+    if (!payload) {
+      return null;
+    }
+
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(Buffer.from(normalizedPayload, "base64").toString("utf8")) as {
+      sub?: string;
+      email?: string;
+      exp?: number;
+    };
+
+    if (!decoded.sub) {
+      return null;
+    }
+
+    if (decoded.exp && decoded.exp * 1000 <= Date.now()) {
+      return null;
+    }
+
+    return {
+      id: decoded.sub,
+      email: decoded.email ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function createServerInsForgeClient(accessToken?: string): InsForgeClient {
   const { url, anonKey } = getInsForgeEnv();
@@ -85,19 +122,17 @@ export async function getAuthenticatedServerClient() {
     return null;
   }
 
-  const insforge = createServerInsForgeClient(accessToken);
-  const { data, error } = await withInsForgeTimeout(
-    insforge.auth.getCurrentUser(),
-    "InsForge getCurrentUser",
-  );
+  const tokenUser = getUserFromAccessToken(accessToken);
 
-  if (error || !data?.user) {
+  if (!tokenUser) {
     return null;
   }
 
+  const insforge = createServerInsForgeClient(accessToken);
+
   return {
     insforge,
-    user: data.user,
+    user: tokenUser,
   };
 }
 

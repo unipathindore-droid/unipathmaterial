@@ -7,13 +7,10 @@ import { t } from "@/lib/i18n";
 import { getCurrentLanguage } from "@/lib/i18n-server";
 
 export default async function BranchesPage() {
-  const [currentUser, branches, language] = await Promise.all([
-    getCurrentUserProfile(),
-    getBranches(),
-    getCurrentLanguage(),
-  ]);
+  const [currentUser, language] = await Promise.all([getCurrentUserProfile(), getCurrentLanguage()]);
 
   assertRouteAccess(currentUser, [...ROLE_ACCESS.branches]);
+  const branches = await getBranches(currentUser, true);
 
   return (
     <div className="space-y-6">
