@@ -124,7 +124,7 @@ export function MonthlyStockPanel({
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
               <FileSpreadsheet className="h-4 w-4" />
               Upload Excel
-              <input type="file" accept=".xlsx,.xls" onChange={handleUpload} className="hidden" />
+              <input type="file" accept=".xlsx" onChange={handleUpload} className="hidden" />
             </label>
             <a
               href="/api/exports/stock-updates"

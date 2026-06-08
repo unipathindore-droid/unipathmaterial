@@ -1,10 +1,10 @@
 # UniPath SupplyOS
 
-Production-oriented SaaS starter for pathology material supply management using Next.js App Router, Supabase, Supabase Auth, and Vercel.
+Production-oriented SaaS starter for pathology material supply management using Next.js App Router, InsForge authentication/database services, PostgreSQL migrations, and Vercel.
 
 ## What’s Included
 
-- Role-aware workspace for `admin`, `branch_admin`, `sales`, `material_team`, and `dispatch`
+- Role-aware workspace for `superadmin`, `admin`, `branch_admin`, `sales`, `phlebotomist`, `material_team`, and `dispatch_manager`
 - Branch-based filtering model designed around Supabase Row Level Security
 - Modules for clients, materials, requests, approvals, dispatch, delivery, expiry tracking, consumption, and notifications
 - Dispatch and seven-day expiry email events for clients only
@@ -57,7 +57,7 @@ Production-oriented SaaS starter for pathology material supply management using 
 |   |   `-- utils.ts
 |   `-- types/domain.ts
 `-- supabase
-    |-- migrations/0001_unipath_supplyos.sql
+    |-- migrations
     `-- seed/demo.sql
 ```
 
@@ -106,38 +106,46 @@ npm install
 cp .env.example .env.local
 ```
 
-3. Fill in:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+3. Fill in the InsForge variables:
+   - `NEXT_PUBLIC_INSFORGE_URL`
+   - `NEXT_PUBLIC_INSFORGE_ANON_KEY`
+   - `INSFORGE_API_KEY` for server-side operational tooling
 
-4. Create a Supabase project and run the SQL migration from:
-   - `supabase/migrations/0001_unipath_supplyos.sql`
+4. Create the production database and run every SQL migration in order from:
+   - `supabase/migrations/*.sql`
 
 5. Optional: load sample inventory seed from:
    - `supabase/seed/demo.sql`
 
-6. Create users in Supabase Auth and corresponding `profiles` rows with branch and role assignments.
+6. Configure InsForge auth redirects for every deployed environment:
+   - `http://localhost:3000/api/auth/callback`
+   - `https://<production-host>/api/auth/callback`
+   - matching login URLs for local, staging, and production
 
-7. Start the app:
+7. Create users through the app or InsForge Auth and ensure matching `profiles` rows with branch and role assignments.
+
+8. Start the app:
 
 ```bash
 npm run dev
 ```
 
-## Supabase Auth Setup
+## InsForge Auth Setup
 
-1. Enable Email/Password provider in Supabase Auth.
-2. Create users in Auth.
-3. Insert matching rows into `public.profiles`.
+1. Enable Email/Password and Google providers in InsForge Auth as needed.
+2. Configure allowed callback URLs for each environment.
+3. Create users in Auth through the app or provider console.
+4. Insert or approve matching rows in `public.profiles`.
 4. Assign:
+   - `superadmin`
    - `admin`
    - `branch_admin`
    - `sales`
+   - `phlebotomist`
    - `material_team`
-   - `dispatch`
+   - `dispatch_manager`
 
-Because RLS uses `auth.uid()` joined to `profiles`, users only see branch data allowed by policy.
+Because RLS uses the authenticated user id joined to `profiles`, users only see branch data allowed by policy.
 
 ## Vercel Deployment
 
@@ -145,7 +153,16 @@ Because RLS uses `auth.uid()` joined to `profiles`, users only see branch data a
 2. Import the project into Vercel.
 3. Add the same environment variables from `.env.local`.
 4. Deploy.
-5. In Supabase, add the Vercel production URL to the Auth redirect and site URL settings.
+5. In InsForge, add the Vercel production URL to the Auth redirect and site URL settings.
+
+## Production Checklist
+
+- Rotate any secrets that were shared outside the secret manager before deployment.
+- Run `npm audit` and address high-severity production dependency findings.
+- Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` in CI.
+- Verify a fresh database can be created from `supabase/migrations/*.sql`.
+- Configure monitoring, error tracking, database backups, and restore drills.
+- Replace the in-memory auth rate limiter with a shared Redis/edge-backed limiter for multi-instance deployments.
 
 ## Useful Commands
 

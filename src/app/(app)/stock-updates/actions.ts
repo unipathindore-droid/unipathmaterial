@@ -63,6 +63,21 @@ export async function saveMonthlyStockUpdateAction(
         .select("*")
         .eq("id", parsed.data.id)
         .single();
+
+      if (existing.error || !existing.data) {
+        return {
+          ok: false,
+          error: existing.error?.message ?? "Stock update not found.",
+        };
+      }
+
+      if (!canAccessBranch(actor, existing.data.branch_id)) {
+        return {
+          ok: false,
+          error: "You can edit stock only for your assigned branches.",
+        };
+      }
+
       previousRecord = (existing.data as Record<string, unknown> | null) ?? null;
     }
 

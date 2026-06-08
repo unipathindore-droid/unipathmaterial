@@ -34,6 +34,28 @@ export async function saveClientAction(values: ClientFormValues): Promise<Client
       };
     }
 
+    if (parsed.data.id) {
+      const existingClient = await authContext.insforge.database
+        .from("clients")
+        .select("id, branch_id")
+        .eq("id", parsed.data.id)
+        .single();
+
+      if (existingClient.error || !existingClient.data) {
+        return {
+          ok: false,
+          error: existingClient.error?.message ?? "Client not found.",
+        };
+      }
+
+      if (!canAccessBranch(actor, existingClient.data.branch_id)) {
+        return {
+          ok: false,
+          error: "You can only edit clients for your own branch.",
+        };
+      }
+    }
+
     const payload = {
       branch_id: parsed.data.branch_id,
       account_owner_id: actor.id,

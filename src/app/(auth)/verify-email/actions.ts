@@ -1,9 +1,11 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createServerInsForgeClient, writeAuditLog } from "@/lib/insforge/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 type VerifyEmailState = {
   error: string;
@@ -16,6 +18,18 @@ export async function verifyEmailAction(
 ): Promise<VerifyEmailState> {
   const email = String(formData.get("email") ?? "").trim();
   const otp = String(formData.get("otp") ?? "").trim();
+  const requestHeaders = await headers();
+  const rateLimit = checkRateLimit(`verify:${getClientIp(requestHeaders)}:${email.toLowerCase()}`, {
+    limit: 8,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return {
+      error: "Too many verification attempts. Please try again later.",
+      success: "",
+    };
+  }
 
   const insforge = createServerInsForgeClient();
   const { data, error } = await insforge.auth.verifyEmail({ email, otp });
@@ -53,11 +67,23 @@ export async function resendVerificationAction(
   formData: FormData,
 ): Promise<VerifyEmailState> {
   const email = String(formData.get("email") ?? "").trim();
+  const requestHeaders = await headers();
+  const rateLimit = checkRateLimit(`resend:${getClientIp(requestHeaders)}:${email.toLowerCase()}`, {
+    limit: 3,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return {
+      error: "Too many resend attempts. Please try again later.",
+      success: "",
+    };
+  }
 
   const insforge = createServerInsForgeClient();
   const { error } = await insforge.auth.resendVerificationEmail({
     email,
-    redirectTo: "http://localhost:3000/login",
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/login`,
   });
 
   if (error) {

@@ -14,7 +14,8 @@ export async function markNotificationRead(notificationId: string) {
   const { error } = await authContext.insforge.database
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
-    .eq("id", notificationId);
+    .eq("id", notificationId)
+    .eq("recipient_user_id", authContext.user.id);
 
   return { ok: !error };
 }

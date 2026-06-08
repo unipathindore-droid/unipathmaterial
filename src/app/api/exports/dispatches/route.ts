@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   const rows = await getDispatches(profile);
-  const workbook = buildWorkbookBuffer(
+  const workbook = await buildWorkbookBuffer(
     rows.map((row) => ({
       dispatch_number: row.dispatch_number,
       request_number: row.request_number,

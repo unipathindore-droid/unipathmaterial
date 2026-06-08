@@ -9,11 +9,16 @@ import {
   withInsForgeTimeout,
   writeAuditLog,
 } from "@/lib/insforge/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+
+const LOGIN_ERROR = "Unable to sign in with those credentials.";
 
 export async function POST(request: Request) {
   if (!isInsForgeConfigured()) {
     return NextResponse.json({ ok: true });
   }
+
+  const ip = getClientIp(request.headers);
 
   const body = (await request.json().catch(() => null)) as {
     email?: string;
@@ -27,6 +32,23 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Email and password are required." },
       { status: 400 },
+    );
+  }
+
+  const rateLimit = checkRateLimit(`password:${ip}:${email.toLowerCase()}`, {
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many sign-in attempts. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
     );
   }
 
@@ -44,7 +66,7 @@ export async function POST(request: Request) {
     const message =
       error?.statusCode === 403
         ? "Your email is not verified yet. Open /verify-email, enter the 6-digit code from your inbox, and then sign in again."
-        : error?.message ?? "Sign in failed.";
+        : LOGIN_ERROR;
 
     return NextResponse.json({ error: message }, { status: 401 });
   }
@@ -127,12 +149,10 @@ export async function POST(request: Request) {
 
   return response;
   } catch (error) {
+    console.error("Password sign-in failed", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to sign in right now. Please try again.",
+        error: "Unable to sign in right now. Please try again.",
       },
       { status: 504 },
     );

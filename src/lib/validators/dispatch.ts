@@ -27,7 +27,7 @@ export const dispatchSchema = z
     tracking_number: z.string().max(120, "Tracking number is too long.").optional().or(z.literal("")),
     contact_number: z.string().max(20, "Contact number is too long.").optional().or(z.literal("")),
     remarks: z.string().max(300, "Remarks are too long.").optional().or(z.literal("")),
-    dispatch_status: z.enum(["pending", "in_transit", "delivered", "cancelled"]),
+    dispatch_status: z.enum(["queued", "packed", "dispatched", "delivered", "cancelled"]),
     received_confirmation: z.boolean(),
     received_by: z.string().max(120, "Received by is too long.").optional().or(z.literal("")),
     received_date: z.string().optional().or(z.literal("")),

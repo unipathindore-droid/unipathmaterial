@@ -193,10 +193,24 @@ export async function createDispatchAction(
       };
     }
 
+    if (parsed.data.dispatch_from_branch_id !== requestRow.branch_id) {
+      return {
+        ok: false,
+        error: "Dispatch branch must match the approved request branch.",
+      };
+    }
+
     if (requestRow.status !== "approved") {
       return {
         ok: false,
         error: "Only approved requests can be dispatched.",
+      };
+    }
+
+    if (parsed.data.dispatch_status === "cancelled") {
+      return {
+        ok: false,
+        error: "Cancelled dispatches cannot be created directly.",
       };
     }
 
@@ -214,92 +228,41 @@ export async function createDispatchAction(
     }
 
     const dispatchNumber = buildDispatchNumber();
-    const dispatchInsert = await authContext.insforge.database
-      .from("dispatches")
-      .insert({
-        request_id: requestRow.id,
-        branch_id: requestRow.branch_id,
-        dispatch_from_branch_id: parsed.data.dispatch_from_branch_id,
-        dispatch_to_branch_id: parsed.data.dispatch_to_branch_id || null,
-        client_id: requestRow.client_id,
-        dispatch_number: dispatchNumber,
-        dispatch_date: parsed.data.dispatch_date,
-        destination_name: parsed.data.destination_name || null,
-        dispatch_type: parsed.data.dispatch_type,
-        person_name: parsed.data.person_name || null,
-        bus_name: parsed.data.bus_name || null,
-        bus_number: parsed.data.bus_number || null,
-        courier_company_name: parsed.data.courier_name || null,
-        status: parsed.data.dispatch_status,
-        prepared_by: actor.id,
-        courier_name: parsed.data.courier_name || null,
-        lr_number: parsed.data.lr_number || null,
-        tracking_number: parsed.data.tracking_number || null,
-        contact_number: parsed.data.contact_number || null,
-        remarks: parsed.data.remarks || null,
-        received_confirmation: parsed.data.received_confirmation,
-        received_by: parsed.data.received_by || null,
-        received_date: parsed.data.received_date || null,
-        eta_date: parsed.data.eta_date || null,
+    const dispatchCreate = await authContext.insforge.database
+      .rpc("create_dispatch_with_inventory", {
+        p_request_id: requestRow.id,
+        p_actor_id: actor.id,
+        p_dispatch_number: dispatchNumber,
+        p_dispatch_date: parsed.data.dispatch_date,
+        p_dispatch_from_branch_id: parsed.data.dispatch_from_branch_id,
+        p_dispatch_to_branch_id: parsed.data.dispatch_to_branch_id || null,
+        p_destination_name: parsed.data.destination_name || null,
+        p_dispatch_type: parsed.data.dispatch_type,
+        p_person_name: parsed.data.person_name || null,
+        p_bus_name: parsed.data.bus_name || null,
+        p_bus_number: parsed.data.bus_number || null,
+        p_courier_name: parsed.data.courier_name || null,
+        p_lr_number: parsed.data.lr_number || null,
+        p_tracking_number: parsed.data.tracking_number || null,
+        p_contact_number: parsed.data.contact_number || null,
+        p_remarks: parsed.data.remarks || null,
+        p_received_confirmation: parsed.data.received_confirmation,
+        p_received_by: parsed.data.received_by || null,
+        p_received_date: parsed.data.received_date || null,
+        p_eta_date: parsed.data.eta_date || null,
+        p_dispatch_status: parsed.data.dispatch_status,
+        p_items: parsed.data.items,
       })
-      .select("id")
       .single();
 
-    if (dispatchInsert.error || !dispatchInsert.data) {
+    if (dispatchCreate.error || !dispatchCreate.data) {
       return {
         ok: false,
-        error: dispatchInsert.error?.message ?? "Unable to create dispatch.",
+        error: dispatchCreate.error?.message ?? "Unable to create dispatch.",
       };
     }
 
-    const dispatchId = dispatchInsert.data.id as string;
-    const itemsInsert = await authContext.insforge.database.from("dispatch_items").insert(
-      parsed.data.items.map((item) => ({
-        dispatch_id: dispatchId,
-        request_item_id: item.request_item_id,
-        material_id: item.material_id,
-        branch_inventory_id: item.branch_inventory_id,
-        quantity: item.quantity,
-        batch_number: item.batch_number || null,
-        expiry_date: item.expiry_date || null,
-      })),
-    );
-
-    if (itemsInsert.error) {
-      await authContext.insforge.database.from("dispatches").delete().eq("id", dispatchId);
-      return {
-        ok: false,
-        error: itemsInsert.error.message,
-      };
-    }
-
-    const requestUpdate = await authContext.insforge.database
-      .from("material_requests")
-      .update({ status: "dispatched" })
-      .eq("id", requestRow.id);
-
-    if (requestUpdate.error) {
-      return {
-        ok: false,
-        error: requestUpdate.error.message,
-      };
-    }
-
-    const dispatchStatusUpdate = await authContext.insforge.database
-      .from("dispatches")
-      .update({
-        status: parsed.data.dispatch_status,
-        dispatched_by: actor.id,
-        dispatched_at: new Date().toISOString(),
-      })
-      .eq("id", dispatchId);
-
-    if (dispatchStatusUpdate.error) {
-      return {
-        ok: false,
-        error: dispatchStatusUpdate.error.message,
-      };
-    }
+    const dispatchId = (dispatchCreate.data as { dispatch_id: string }).dispatch_id;
 
     await authContext.insforge.database.from("notifications").insert({
       branch_id: requestRow.branch_id,

@@ -43,7 +43,7 @@ export function DispatchManager({
     tracking_number: "",
     contact_number: "",
     remarks: "",
-    dispatch_status: "pending",
+    dispatch_status: "queued",
     received_confirmation: false,
     received_by: "",
     received_date: "",
@@ -134,7 +134,7 @@ export function DispatchManager({
         tracking_number: "",
         contact_number: "",
         remarks: "",
-        dispatch_status: "pending",
+        dispatch_status: "queued",
         received_confirmation: false,
         received_by: "",
         received_date: "",
@@ -303,8 +303,9 @@ export function DispatchManager({
                 }
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-500"
               >
-                <option value="pending">Pending</option>
-                <option value="in_transit">In Transit</option>
+                <option value="queued">Queued</option>
+                <option value="packed">Packed</option>
+                <option value="dispatched">Dispatched</option>
                 <option value="delivered">Delivered</option>
                 <option value="cancelled">Cancelled</option>
               </select>

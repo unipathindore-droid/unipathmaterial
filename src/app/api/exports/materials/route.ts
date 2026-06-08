@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   const rows = await getMaterialStockRows(profile);
-  const workbook = buildWorkbookBuffer(
+  const workbook = await buildWorkbookBuffer(
     rows.map((row) => ({
       branch_name: row.branch_name ?? "",
       material_name: row.material_name,

@@ -1,5 +1,7 @@
 [auth]
 allowed_redirect_urls = [
   "http://localhost:3000/api/auth/callback",
-  "http://localhost:3000/login"
+  "http://localhost:3000/login",
+  "https://aebgtvv8.insforge.site/api/auth/callback",
+  "https://aebgtvv8.insforge.site/login"
 ]
