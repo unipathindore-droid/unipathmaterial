@@ -1,4 +1,4 @@
-import { Activity, BadgeCheck, ClipboardCheck, Users } from "lucide-react";
+import { Activity, BadgeCheck, UserCheck, Users } from "lucide-react";
 
 import { DashboardRealtimeSync } from "@/components/dashboard/dashboard-realtime-sync";
 import { MetricCard } from "@/components/dashboard/metric-card";
@@ -22,23 +22,23 @@ export default async function DashboardPage() {
       <section className="rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-sm">
         <PageHeader
           eyebrow={currentUser?.role === "superadmin" ? "Super Admin Dashboard" : "Dashboard"}
-          title="Simple account approval and audit control"
-          description="The core flow lives here: create users, let them verify email, approve access, and track every login or approval event without extra operational noise."
+          title="Account access and audit control"
+          description="The core flow lives here: create users, reset passwords, activate or deactivate access, and track every login or account-management event."
         />
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total Users" value={data.metrics.totalUsers} helper="Every app profile currently present in the system." />
-        <MetricCard label="Pending Approvals" value={data.metrics.pendingApprovals} helper="Users who still need a Super Admin approval after email verification." />
-        <MetricCard label="Approved Users" value={data.metrics.approvedUsers} helper="Active users who can already sign in and access the product." />
-        <MetricCard label="Recent Audit Events" value={data.metrics.auditEvents} helper="Latest access and approval actions captured in the audit log." />
+        <MetricCard label="Active Users" value={data.metrics.activeUsers} helper="Users who can sign in and access allowed features." />
+        <MetricCard label="Inactive Users" value={data.metrics.inactiveUsers} helper="Users blocked from login until an admin activates them." />
+        <MetricCard label="Recent Audit Events" value={data.metrics.auditEvents} helper="Latest access and account-management actions captured in the audit log." />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-3">
-            <ClipboardCheck className="h-5 w-5 text-teal-700" />
-            <h2 className="text-xl font-semibold text-slate-950">Pending approval queue</h2>
+            <UserCheck className="h-5 w-5 text-teal-700" />
+            <h2 className="text-xl font-semibold text-slate-950">User status</h2>
           </div>
 
           <DataTable
@@ -59,17 +59,17 @@ export default async function DashboardPage() {
                 render: (row) => row.role,
               },
               {
-                key: "verified",
-                header: "Verified",
-                render: (row) => (row.email_verified_at ? formatDateTime(row.email_verified_at) : "Waiting"),
+                key: "last_login",
+                header: "Last Login",
+                render: (row) => (row.last_login_at ? formatDateTime(row.last_login_at) : "No login yet"),
               },
               {
                 key: "status",
                 header: "Status",
-                render: (row) => <StatusPill value={row.approval_status ?? "pending"} />,
+                render: (row) => <StatusPill value={row.is_active ? "active" : "inactive"} />,
               },
             ]}
-            rows={data.pendingUsers}
+            rows={data.users.slice(0, 6)}
           />
         </div>
 
@@ -117,7 +117,7 @@ export default async function DashboardPage() {
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-700">
                 Super Admin can create any operational role, while the invited user keeps that role
-                after approval.
+                immediately after account creation.
               </p>
             </div>
 
@@ -129,8 +129,8 @@ export default async function DashboardPage() {
                 </p>
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-700">
-                A verified email alone is not enough. Approval status must be set to approved
-                before login is allowed.
+                Active users can sign in with their password. Inactive users are blocked until an
+                Admin or Super Admin activates them.
               </p>
             </div>
           </div>

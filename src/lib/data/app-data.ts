@@ -397,7 +397,7 @@ export async function getAdminConsoleData(profile: UserProfile): Promise<AdminCo
     let usersQuery = insforge.database
       .from("profiles")
       .select(
-        "id, full_name, email, mobile_number, role, branch_id, managed_branch_ids, permissions, is_active, approval_status, invited_by, approved_by, approved_at, email_verified_at, last_login_at, created_at",
+        "id, full_name, email, mobile_number, role, branch_id, managed_branch_ids, permissions, is_active, approval_status, invited_by, created_by, approved_by, approved_at, email_verified_at, last_login_at, created_at",
       )
       .order("created_at", { ascending: false });
 
@@ -424,20 +424,20 @@ export async function getAdminConsoleData(profile: UserProfile): Promise<AdminCo
     return {
       metrics: {
         totalUsers: users.length,
-        pendingApprovals: users.filter((user) => user.approval_status === "pending").length,
-        approvedUsers: users.filter((user) => user.approval_status === "approved" && user.is_active).length,
+        activeUsers: users.filter((user) => user.is_active).length,
+        inactiveUsers: users.filter((user) => !user.is_active).length,
         auditEvents: recentAuditLogs.length,
       },
       users,
-      pendingUsers: users.filter((user) => user.approval_status === "pending"),
+      pendingUsers: [],
       recentAuditLogs,
     };
   } catch {
     return {
       metrics: {
         totalUsers: 0,
-        pendingApprovals: 0,
-        approvedUsers: 0,
+        activeUsers: 0,
+        inactiveUsers: 0,
         auditEvents: 0,
       },
       users: [],

@@ -14,14 +14,13 @@ export default async function UsersPage() {
       <section className="rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-sm">
         <PageHeader
           eyebrow="User Management"
-          title="Create, approve, and track user access"
-          description="Super Admin and Admin can create users, approve access after verification, and keep every important step in the audit trail."
+          title="Create and manage user access"
+          description="Super Admin and Admin can create users, reset passwords, activate or deactivate accounts, and keep every important step in the audit trail."
         />
       </section>
 
       <UserManagementPanel
         users={data.users}
-        pendingUsers={data.pendingUsers}
         recentAuditLogs={data.recentAuditLogs}
         branches={branches}
         currentUser={currentUser!}

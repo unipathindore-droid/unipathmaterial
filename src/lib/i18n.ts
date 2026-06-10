@@ -26,7 +26,7 @@ const en = {
   "role.material_team": "Material Team",
   "role.dispatch_manager": "Dispatch Manager",
   "shell.multi_branch": "System-wide access",
-  "shell.branch_filtering": "Branch filtering, approval control, and audit logging enabled",
+  "shell.branch_filtering": "Branch filtering, access control, and audit logging enabled",
   "shell.unread_alerts": "unread alerts",
   "shell.switch_account": "Switch account",
   "notifications.title": "Notifications",
@@ -40,9 +40,9 @@ const en = {
   "pages.dashboard.description":
     "The operations console keeps branch activity visible for admins and surfaces stock, request, and dispatch signals before work slows down.",
   "pages.users.eyebrow": "User Management",
-  "pages.users.title": "Create, approve, and manage branch access.",
+  "pages.users.title": "Create and manage branch access.",
   "pages.users.description":
-    "Super Admin and Admin can create users, approve access after email verification, and keep every major change visible in the audit trail.",
+    "Super Admin and Admin can create users, reset passwords, activate or deactivate accounts, and keep every major change visible in the audit trail.",
   "pages.branches.eyebrow": "Branches",
   "pages.branches.title": "Create and govern branches with role-aware restrictions.",
   "pages.branches.description":
@@ -78,19 +78,19 @@ const en = {
   "login.badge": "UniPath SupplyOS",
   "login.hero_title": "Simple access control for UniPath operations.",
   "login.hero_description":
-    "Super Admin creates users, users verify email, approvals happen inside the app, and every important action is written to the audit log.",
+    "Super Admin and Admin create users, manage activation, and write every important access action to the audit log.",
   "login.sign_in": "Sign In",
   "login.console_title": "Access your operations console",
-  "login.console_description": "Sign in with your approved UniPath account credentials.",
+  "login.console_description": "Sign in with your active UniPath account credentials.",
   "login.highlights.role.title": "Role-aware controls",
   "login.highlights.role.description":
     "Super Admin and Admin manage access, while branch teams work only inside the permissions they are given.",
-  "login.highlights.dispatch.title": "Approval workflow",
+  "login.highlights.dispatch.title": "Direct login",
   "login.highlights.dispatch.description":
-    "Users verify email first, then Admin or Super Admin approval unlocks access.",
+    "Active users can sign in immediately with the password assigned by an Admin or Super Admin.",
   "login.highlights.alerts.title": "Actionable alerts",
   "login.highlights.alerts.description":
-    "Invites, approvals, stock updates, and sign-ins are recorded in a simple audit trail.",
+    "User changes, password resets, stock updates, and sign-ins are recorded in a simple audit trail.",
 } as const;
 
 const hi: Record<keyof typeof en, string> = {

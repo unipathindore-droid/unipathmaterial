@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   const authenticatedClient = createServerInsForgeClient(data.accessToken);
   const { data: profile } = await authenticatedClient.database
     .from("profiles")
-    .select("id, approval_status, is_active")
+    .select("id, is_active")
     .eq("id", data.user.id)
     .single();
 
@@ -51,9 +51,9 @@ export async function GET(request: NextRequest) {
 
   await clearCodeVerifierCookie();
 
-  if (!profile || !profile.is_active || profile.approval_status !== "approved") {
+  if (!profile || !profile.is_active) {
     await clearAuthCookies();
-    return NextResponse.redirect(new URL("/login?verified=1", request.url));
+    return NextResponse.redirect(new URL("/login?error=deactivated", request.url));
   }
 
   return NextResponse.redirect(new URL("/dashboard", request.url));

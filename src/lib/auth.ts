@@ -36,7 +36,7 @@ export const getCurrentUserProfileRecord = cache(getProfileRecord);
 export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null> => {
   const profile = await getProfileRecord();
 
-  if (!profile || !profile.is_active || profile.approval_status !== "approved") {
+  if (!profile || !profile.is_active) {
     return null;
   }
 

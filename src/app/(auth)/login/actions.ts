@@ -45,13 +45,6 @@ export async function signInAction(_: LoginState, formData: FormData): Promise<L
   });
 
   if (error || !data?.accessToken) {
-    if (error?.statusCode === 403) {
-      return {
-        error:
-          "Your email is not verified yet. Open /verify-email, enter the 6-digit code from your inbox, and then sign in again.",
-      };
-    }
-
     return { error: error?.message ?? "Sign in failed." };
   }
 
@@ -60,7 +53,7 @@ export async function signInAction(_: LoginState, formData: FormData): Promise<L
   const authenticatedClient = createServerInsForgeClient(data.accessToken);
   const { data: profile, error: profileError } = await authenticatedClient.database
     .from("profiles")
-    .select("id, is_active, approval_status")
+    .select("id, is_active")
     .eq("id", data.user.id)
     .single();
 
@@ -75,17 +68,7 @@ export async function signInAction(_: LoginState, formData: FormData): Promise<L
 
   if (!profile.is_active) {
     await clearAuthCookies();
-    return { error: "Your account is inactive. Please contact the administrator." };
-  }
-
-  if (profile.approval_status !== "approved") {
-    await clearAuthCookies();
-    return {
-      error:
-        profile.approval_status === "rejected"
-          ? "Your account request was rejected. Please contact the Super Admin."
-          : "Your email is verified, but a Super Admin still needs to approve your login.",
-    };
+    return { error: "Your account is deactivated. Contact admin." };
   }
 
   await authenticatedClient.database

@@ -2,10 +2,15 @@
 
 import { useActionState, useMemo } from "react";
 
-import { approveUserAction, createUserAction } from "@/app/(app)/users/actions";
+import {
+  createUserAction,
+  deleteUserAction,
+  resetUserPasswordAction,
+  setUserStatusAction,
+} from "@/app/(app)/users/actions";
 import { DataTable } from "@/components/tables/data-table";
 import { StatusPill } from "@/components/layout/status-pill";
-import type { AuditLogRecord, Branch, ManagedUserRecord, UserProfile } from "@/types/domain";
+import type { AppRole, AuditLogRecord, Branch, ManagedUserRecord, UserProfile } from "@/types/domain";
 import { formatDateTime } from "@/lib/utils";
 
 const initialState = {
@@ -15,13 +20,11 @@ const initialState = {
 
 export function UserManagementPanel({
   users,
-  pendingUsers,
   recentAuditLogs,
   branches,
   currentUser,
 }: {
   users: ManagedUserRecord[];
-  pendingUsers: ManagedUserRecord[];
   recentAuditLogs: AuditLogRecord[];
   branches: Branch[];
   currentUser: UserProfile;
@@ -47,6 +50,9 @@ export function UserManagementPanel({
           ],
     [currentUser.role],
   );
+  const canManageRow = (row: ManagedUserRecord) =>
+    currentUser.role === "superadmin" ||
+    !(["superadmin", "admin"] as AppRole[]).includes(row.role);
 
   return (
     <div className="space-y-6">
@@ -54,8 +60,8 @@ export function UserManagementPanel({
         <div className="mb-5">
           <h2 className="text-xl font-semibold text-slate-950">Create user</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Admin and Super Admin can create users. Super Admin can create Admin accounts and
-            modify permissions at any time.
+            Admin and Super Admin can create users. Active users can sign in immediately with the
+            password set here.
           </p>
         </div>
 
@@ -63,7 +69,7 @@ export function UserManagementPanel({
           <Field label="Full Name" name="full_name" placeholder="User full name" required />
           <Field label="Mobile Number" name="mobile_number" placeholder="9876543210" />
           <Field label="Email" name="email" type="email" placeholder="user@unipath.in" required />
-          <Field label="Password" name="password" type="text" placeholder="Minimum 8 characters" required />
+          <Field label="Password" name="password" type="password" placeholder="Minimum 8 characters" required />
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-700">Role</span>
@@ -161,67 +167,6 @@ export function UserManagementPanel({
 
       <section className="rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-sm">
         <div className="mb-5">
-          <h2 className="text-xl font-semibold text-slate-950">Pending approvals</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Approve only after the user has verified the code sent to their inbox.
-          </p>
-        </div>
-
-        <DataTable
-          columns={[
-            {
-              key: "user",
-              header: "User",
-              render: (row) => (
-                <div>
-                  <p className="font-semibold text-slate-900">{row.full_name}</p>
-                  <p className="text-slate-500">{row.email}</p>
-                </div>
-              ),
-            },
-            {
-              key: "mobile",
-              header: "Mobile",
-              render: (row) => row.mobile_number ?? "Not set",
-            },
-            {
-              key: "role",
-              header: "Role",
-              render: (row) => row.role,
-            },
-            {
-              key: "verified",
-              header: "Email Verified",
-              render: (row) => (row.email_verified_at ? formatDateTime(row.email_verified_at) : "Waiting"),
-            },
-            {
-              key: "status",
-              header: "Status",
-              render: (row) => <StatusPill value={row.approval_status ?? "pending"} />,
-            },
-            {
-              key: "action",
-              header: "Action",
-              render: (row) => (
-                <form action={approveUserAction}>
-                  <input type="hidden" name="user_id" value={row.id} />
-                  <button
-                    type="submit"
-                    disabled={!row.email_verified_at}
-                    className="rounded-2xl bg-teal-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
-                </form>
-              ),
-            },
-          ]}
-          rows={pendingUsers}
-        />
-      </section>
-
-      <section className="rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-sm">
-        <div className="mb-5">
           <h2 className="text-xl font-semibold text-slate-950">All users</h2>
         </div>
 
@@ -248,14 +193,72 @@ export function UserManagementPanel({
               render: (row) => row.branch?.name ?? "System-wide",
             },
             {
-              key: "approval",
-              header: "Approval",
-              render: (row) => <StatusPill value={row.approval_status ?? "pending"} />,
+              key: "status",
+              header: "Status",
+              render: (row) => <StatusPill value={row.is_active ? "active" : "inactive"} />,
             },
             {
               key: "login",
               header: "Last Login",
               render: (row) => (row.last_login_at ? formatDateTime(row.last_login_at) : "No login yet"),
+            },
+            {
+              key: "actions",
+              header: "Actions",
+              render: (row) =>
+                canManageRow(row) ? (
+                  <div className="flex min-w-72 flex-col gap-2">
+                    <form action={resetUserPasswordAction} className="flex gap-2">
+                      <input type="hidden" name="user_id" value={row.id} />
+                      <input
+                        name="password"
+                        type="password"
+                        minLength={8}
+                        placeholder="New password"
+                        className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-teal-500"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        Reset
+                      </button>
+                    </form>
+                    <div className="flex gap-2">
+                      {row.id !== currentUser.id ? (
+                        <>
+                          <form action={setUserStatusAction}>
+                            <input type="hidden" name="user_id" value={row.id} />
+                            <input
+                              type="hidden"
+                              name="next_status"
+                              value={row.is_active ? "inactive" : "active"}
+                            />
+                            <button
+                              type="submit"
+                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-500 hover:text-teal-700"
+                            >
+                              {row.is_active ? "Deactivate" : "Activate"}
+                            </button>
+                          </form>
+                          <form action={deleteUserAction}>
+                            <input type="hidden" name="user_id" value={row.id} />
+                            <button
+                              type="submit"
+                              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+                            >
+                              Delete
+                            </button>
+                          </form>
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-500">Current session</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-500">Restricted</span>
+                ),
             },
           ]}
           rows={users}

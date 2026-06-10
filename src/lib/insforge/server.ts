@@ -206,7 +206,7 @@ export async function ensureAppProfileForUser(
   const now = new Date().toISOString();
   const { data: existingProfile } = await insforge.database
     .from("profiles")
-    .select("role, approval_status, invited_by, approved_by, approved_at")
+    .select("role, invited_by, approved_by, approved_at")
     .eq("id", user.id)
     .single();
   const assignedRole = typeof user.metadata?.assignedRole === "string" ? user.metadata.assignedRole : null;
@@ -233,11 +233,11 @@ export async function ensureAppProfileForUser(
           role: nextRole,
           branch_id: null,
           is_active: true,
-          approval_status: existingProfile?.approval_status ?? (isSuperAdmin ? "approved" : "pending"),
+          approval_status: "approved",
           invited_by: existingProfile?.invited_by ?? null,
-          approved_by: existingProfile?.approved_by ?? null,
-          approved_at: existingProfile?.approved_at ?? (isSuperAdmin ? now : null),
-          email_verified_at: user.emailVerified ? now : null,
+          approved_by: existingProfile?.approved_by ?? (isSuperAdmin ? user.id : null),
+          approved_at: existingProfile?.approved_at ?? now,
+          email_verified_at: now,
         },
       ],
       {

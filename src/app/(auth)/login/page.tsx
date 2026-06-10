@@ -20,7 +20,7 @@ export default async function LoginPage({
     redirect("/dashboard");
   }
 
-  const verified = resolvedSearchParams?.verified === "1";
+  const deactivated = resolvedSearchParams?.error === "deactivated";
 
   const highlights = [
     {
@@ -95,21 +95,12 @@ export default async function LoginPage({
             ) : null}
 
             <div className="mt-8">
-              {verified ? (
-                <div className="mb-4 rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm leading-6 text-emerald-900">
-                  Email verified successfully. If this is a new account, wait for Super Admin approval
-                  before signing in.
+              {deactivated ? (
+                <div className="mb-4 rounded-3xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm leading-6 text-rose-800">
+                  Your account is deactivated. Contact admin.
                 </div>
               ) : null}
               <LoginForm />
-            </div>
-
-            <div className="mt-6 text-sm text-slate-600">
-              Need to activate a new account first? Open{" "}
-              <a href="/verify-email" className="font-medium text-teal-700 transition hover:text-teal-800">
-                email verification
-              </a>
-              , confirm the code from your inbox, and then wait for Super Admin approval.
             </div>
           </div>
         </section>

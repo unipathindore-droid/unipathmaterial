@@ -53,35 +53,30 @@ export async function POST(request: Request) {
   }
 
   try {
-  const insforge = createServerInsForgeClient();
-  const { data, error } = await withInsForgeTimeout(
-    insforge.auth.signInWithPassword({
-      email,
-      password,
-    }),
-    "InsForge password sign-in",
-  );
+    const insforge = createServerInsForgeClient();
+    const { data, error } = await withInsForgeTimeout(
+      insforge.auth.signInWithPassword({
+        email,
+        password,
+      }),
+      "InsForge password sign-in",
+    );
 
-  if (error || !data?.accessToken) {
-    const message =
-      error?.statusCode === 403
-        ? "Your email is not verified yet. Open /verify-email, enter the 6-digit code from your inbox, and then sign in again."
-        : LOGIN_ERROR;
+    if (error || !data?.accessToken) {
+      return NextResponse.json({ error: LOGIN_ERROR }, { status: 401 });
+    }
 
-    return NextResponse.json({ error: message }, { status: 401 });
-  }
-
-  const authenticatedClient = createServerInsForgeClient(data.accessToken);
-  const { data: profile, error: profileError } = await withInsForgeTimeout(
-    Promise.resolve(
-      authenticatedClient.database
-        .from("profiles")
-        .select("id, is_active, approval_status")
-        .eq("id", data.user.id)
-        .single(),
-    ),
-    "InsForge login profile lookup",
-  );
+    const authenticatedClient = createServerInsForgeClient(data.accessToken);
+    const { data: profile, error: profileError } = await withInsForgeTimeout(
+      Promise.resolve(
+        authenticatedClient.database
+          .from("profiles")
+          .select("id, is_active")
+          .eq("id", data.user.id)
+          .single(),
+      ),
+      "InsForge login profile lookup",
+    );
 
   if (profileError || !profile) {
     return NextResponse.json(
@@ -94,24 +89,12 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!profile.is_active) {
-    return NextResponse.json(
-      { error: "Your account is inactive. Please contact the administrator." },
-      { status: 403 },
-    );
-  }
-
-  if (profile.approval_status !== "approved") {
-    return NextResponse.json(
-      {
-        error:
-          profile.approval_status === "rejected"
-            ? "Your account request was rejected. Please contact the Super Admin."
-            : "Your email is verified, but a Super Admin still needs to approve your login.",
-      },
-      { status: 403 },
-    );
-  }
+    if (!profile.is_active) {
+      return NextResponse.json(
+        { error: "Your account is deactivated. Contact admin." },
+        { status: 403 },
+      );
+    }
 
   await withInsForgeTimeout(
     Promise.resolve(

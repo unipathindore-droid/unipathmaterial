@@ -11,7 +11,6 @@ type AuthorizedActor = Pick<
   | "managed_branch_ids"
   | "permissions"
   | "is_active"
-  | "approval_status"
 >;
 
 export async function requireAuthorizedActor(allowedRoles: AppRole[]) {
@@ -23,12 +22,12 @@ export async function requireAuthorizedActor(allowedRoles: AppRole[]) {
 
   const { data: actor } = await authContext.insforge.database
     .from("profiles")
-    .select("id, full_name, email, role, branch_id, managed_branch_ids, permissions, is_active, approval_status")
+    .select("id, full_name, email, role, branch_id, managed_branch_ids, permissions, is_active")
     .eq("id", authContext.user.id)
     .single();
 
-  if (!actor || !actor.is_active || actor.approval_status !== "approved") {
-    throw new Error("Your account is not approved for this action.");
+  if (!actor || !actor.is_active) {
+    throw new Error("Your account is deactivated. Contact admin.");
   }
 
   if (!allowedRoles.includes(actor.role as AppRole)) {

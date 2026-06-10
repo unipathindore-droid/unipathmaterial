@@ -64,6 +64,7 @@ export interface UserProfile {
   is_active?: boolean;
   approval_status?: ApprovalStatus;
   invited_by?: string | null;
+  created_by?: string | null;
   approved_by?: string | null;
   approved_at?: string | null;
   email_verified_at?: string | null;
@@ -95,8 +96,8 @@ export interface AuditLogRecord {
 
 export interface AdminConsoleMetrics {
   totalUsers: number;
-  pendingApprovals: number;
-  approvedUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
   auditEvents: number;
 }
 
